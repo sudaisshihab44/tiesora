@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Tiesora brand tokens */
+    --color-brand-forest: #285C43;
+    --color-brand-deep: #193D2D;
+    --color-brand-sage: #E7F0E8;
+    --color-brand-ivory: #FAF9F6;
+    --color-brand-charcoal: #202820;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: #202820;
+    background-color: #FAF9F6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Prevent inputs from zooming on iOS Safari (font-size must be ≥16px or we override) */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  @media (min-width: 640px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="date"],
+    textarea,
+    select {
+      font-size: inherit;
+    }
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Tabular figures helper */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
