@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { storage } from '../../services/storage';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 import { Family, FamilyPerson, RelationshipType } from '../../types';
-import { 
-  Sparkles, 
-  ArrowRight, 
-  Check, 
-  Users, 
-  UserPlus, 
-  GitFork, 
-  Send, 
-  X, 
-  ShieldCheck 
+import {
+  Sparkles,
+  ArrowRight,
+  Check,
+  Users,
+  UserPlus,
+  GitFork,
+  Send,
+  X,
+  ShieldCheck,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface OnboardingWizardProps {
@@ -27,45 +30,103 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [step, setStep] = useState(1);
 
   // Step 2 state
-  const [familyName, setFamilyName] = useState('');
+  const [familyName, setFamilyName]             = useState('');
   const [familyDescription, setFamilyDescription] = useState('');
-  const [preferredLang, setPreferredLang] = useState('en');
-  const [createdFamily, setCreatedFamily] = useState<Family | null>(null);
+  const [createdFamily, setCreatedFamily]       = useState<Family | null>(null);
+  const [syncLoading, setSyncLoading]           = useState(false);
+  const [syncError, setSyncError]               = useState<string | null>(null);
 
   // Step 3 state (First Member)
-  const [selfName, setSelfName] = useState('');
+  const [selfName, setSelfName]       = useState('');
   const [selfBirthYear, setSelfBirthYear] = useState('');
   const [firstPerson, setFirstPerson] = useState<FamilyPerson | null>(null);
 
   // Step 4 state (Second Member / Relative)
-  const [relativeName, setRelativeName] = useState('');
+  const [relativeName, setRelativeName]         = useState('');
   const [relativeRelation, setRelativeRelation] = useState<RelationshipType>('parent');
 
   // Step 6 state (Invite relative)
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteSent, setInviteSent]   = useState(false);
 
   if (!isOpen) return null;
 
   const currentUser = storage.getCurrentUser();
 
-  const handleStep2Submit = (e: React.FormEvent) => {
+  const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!familyName.trim()) return;
+    if (!familyName.trim() || syncLoading) return;
 
-    const fam = storage.createFamily({
-      name: familyName.trim(),
-      description: familyDescription.trim() || undefined,
-      owner_id: currentUser.id,
-      privacy_settings: {
-        hideLivingDates: false,
-        hideLivingBiographies: false,
-        hidePrivateMemories: false,
-        requireAdminApprovalForEdits: true,
-        isPubliclySearchable: false,
+    setSyncError(null);
+    setSyncLoading(true);
+
+    // Generate a real UUID when Supabase is configured so the localStorage
+    // layer and the Supabase DB share the same ID from the start.
+    const familyId = (isSupabaseConfigured && supabase)
+      ? crypto.randomUUID()
+      : undefined;
+
+    // 1. Create family in localStorage
+    const fam = storage.createFamily(
+      {
+        name: familyName.trim(),
+        description: familyDescription.trim() || undefined,
+        owner_id: currentUser.id,
+        privacy_settings: {
+          hideLivingDates: false,
+          hideLivingBiographies: false,
+          hidePrivateMemories: false,
+          requireAdminApprovalForEdits: true,
+          isPubliclySearchable: false,
+        },
       },
-    });
+      familyId,
+    );
     setCreatedFamily(fam);
+
+    // 2. Sync to Supabase via the create_family_with_admin RPC.
+    //
+    //    This single SECURITY DEFINER function atomically:
+    //      a) inserts the family row
+    //      b) inserts the admin membership row
+    //    It bypasses the RLS bootstrapping deadlock where inserting a family
+    //    requires an admin membership that can't exist yet.
+    //
+    //    Direct supabase.from('families').upsert() is NOT used here — that
+    //    call was the source of the 42501 RLS violation.
+    if (isSupabaseConfigured && supabase) {
+      try {
+        console.log('[OnboardingWizard] calling create_family_with_admin RPC, id=', fam.id);
+
+        const { data: rpcData, error: rpcError } = await supabase.rpc(
+          'create_family_with_admin',
+          {
+            p_family_id:        fam.id,
+            p_name:             fam.name,
+            p_description:      fam.description ?? null,
+            p_privacy_settings: fam.privacy_settings,
+          },
+        );
+
+        if (rpcError) {
+          const msg = `Family setup failed: ${rpcError.message} (${rpcError.code})`;
+          console.error('[OnboardingWizard] RPC error:', msg);
+          setSyncError(msg);
+          setSyncLoading(false);
+          return;
+        }
+
+        console.log('[OnboardingWizard] family + admin membership created, returned id=', rpcData);
+      } catch (err: any) {
+        const msg = err?.message ?? 'Unexpected error during family setup.';
+        console.error('[OnboardingWizard] unexpected error:', msg);
+        setSyncError(msg);
+        setSyncLoading(false);
+        return;
+      }
+    }
+
+    setSyncLoading(false);
     setStep(3);
   };
 
@@ -149,7 +210,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       user_id: `usr_${Date.now()}`,
       user_email: inviteEmail.trim(),
       user_name: inviteEmail.split('@')[0],
-      role: 'contributor',
+      role: 'viewer',
       status: 'invited',
     });
     setInviteSent(true);
@@ -211,6 +272,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 <p className="text-stone-500 mt-0.5">What should this family collection be called?</p>
               </div>
 
+              {syncError && (
+                <div className="flex items-start gap-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-0.5">Setup failed</p>
+                    <p>{syncError}</p>
+                    <p className="mt-1 text-rose-600">You can try again — no duplicate family will be created.</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-stone-700 mb-1">
                   Family Tree Name <span className="text-rose-500">*</span>
@@ -221,7 +293,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   placeholder="e.g. The Harrison & Davis Heritage"
                   value={familyName}
                   onChange={(e) => setFamilyName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl outline-none focus:border-emerald-700 text-xs font-medium"
+                  disabled={syncLoading}
+                  className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl outline-none focus:border-emerald-700 text-xs font-medium disabled:opacity-60"
                 />
               </div>
 
@@ -234,7 +307,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   placeholder="e.g. Tracing our lineage from Virginia to Oregon..."
                   value={familyDescription}
                   onChange={(e) => setFamilyDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl outline-none focus:border-emerald-700 text-xs resize-none"
+                  disabled={syncLoading}
+                  className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl outline-none focus:border-emerald-700 text-xs resize-none disabled:opacity-60"
                 />
               </div>
 
@@ -242,15 +316,19 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-stone-600 hover:text-stone-900"
+                  disabled={syncLoading}
+                  className="px-4 py-2 text-stone-600 hover:text-stone-900 disabled:opacity-40"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-semibold shadow-xs"
+                  disabled={syncLoading}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs flex items-center gap-2 transition-colors"
                 >
-                  Continue ➔
+                  {syncLoading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating family…</>
+                    : 'Continue ➔'}
                 </button>
               </div>
             </form>

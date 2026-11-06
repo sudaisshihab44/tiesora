@@ -24,10 +24,10 @@ interface PersonProfileDrawerProps {
   relationships: Relationship[];
   memories: Memory[];
   onSelectPerson: (person: FamilyPerson) => void;
-  onEditPerson: (person: FamilyPerson) => void;
-  onAddRelative: (person: FamilyPerson) => void;
+  onEditPerson?: (person: FamilyPerson) => void;
+  onAddRelative?: (person: FamilyPerson) => void;
   onExploreRelationship: (person: FamilyPerson) => void;
-  onDeletePerson: (personId: string) => void;
+  onDeletePerson?: (personId: string) => void;
   onDeleteRelationship?: (relId: string) => void;
 }
 
@@ -101,6 +101,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
   const isDeceased = person.living_status === 'deceased';
 
   const handleDelete = () => {
+    if (!onDeletePerson) return;
     if (window.confirm(`Are you sure you want to remove ${person.display_name} from the family tree? This will remove all their direct relationship links.`)) {
       onDeletePerson(person.id);
       onClose();
@@ -183,6 +184,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
             <Compass className="w-3.5 h-3.5" />
             Find Path
           </button>
+          {onAddRelative && (
           <button
             onClick={() => onAddRelative(person)}
             className="py-2 px-2.5 bg-stone-100 text-stone-800 rounded-xl text-xs font-medium hover:bg-stone-200 transition-colors flex items-center justify-center gap-1.5"
@@ -190,6 +192,8 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
             <UserPlus className="w-3.5 h-3.5" />
             + Relative
           </button>
+          )}
+          {onEditPerson && (
           <button
             onClick={() => onEditPerson(person)}
             className="py-2 px-2.5 bg-stone-100 text-stone-800 rounded-xl text-xs font-medium hover:bg-stone-200 transition-colors flex items-center justify-center gap-1.5"
@@ -197,6 +201,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
             <Edit3 className="w-3.5 h-3.5" />
             Edit Profile
           </button>
+          )}
         </div>
 
         {/* Biography */}
@@ -465,7 +470,8 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
           )}
         </div>
 
-        {/* Destructive Delete Action */}
+        {/* Destructive Delete Action — admin only */}
+        {onDeletePerson && (
         <div className="pt-4 border-t border-stone-200">
           <button
             onClick={handleDelete}
@@ -475,6 +481,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
             Remove {person.display_name} from Tree
           </button>
         </div>
+        )}
       </div>
     </div>
     </>

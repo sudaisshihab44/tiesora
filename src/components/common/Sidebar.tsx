@@ -9,11 +9,14 @@ import {
   Settings,
   Globe,
   Server,
+  Users,
 } from 'lucide-react';
 import { TiesoraLogo } from './TiesoraLogo';
+import { Role } from '../../types';
 
 interface SidebarProps {
   currentTab: string;
+  currentRole: Role;
   onNavigate: (tab: string) => void;
   onViewPublicSite: () => void;
   unreadCount?: number;
@@ -21,19 +24,30 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
+  currentRole,
   onNavigate,
   onViewPublicSite,
   unreadCount = 0,
 }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Main Dashboard', icon: LayoutDashboard },
-    { id: 'tree', label: 'Interactive Tree', icon: GitFork },
-    { id: 'relationships', label: 'Relationship Explorer', icon: Compass },
-    { id: 'memories', label: 'Memories & Archive', icon: Camera },
-    { id: 'events', label: 'Events & Milestones', icon: Calendar },
-    { id: 'collaboration', label: 'Collaboration & Roles', icon: Shield },
-    { id: 'settings', label: 'Settings & Schema', icon: Settings },
+  const isAdmin = currentRole === 'admin';
+
+  // Base nav items visible to all roles
+  const baseItems = [
+    { id: 'dashboard',      label: 'Main Dashboard',        icon: LayoutDashboard },
+    { id: 'tree',           label: 'Interactive Tree',       icon: GitFork },
+    { id: 'relationships',  label: 'Relationship Explorer',  icon: Compass },
+    { id: 'memories',       label: 'Memories & Archive',     icon: Camera },
+    { id: 'events',         label: 'Events & Milestones',    icon: Calendar },
   ];
+
+  // Admin-only nav items
+  const adminItems = [
+    { id: 'user-management', label: 'User Management',       icon: Users },
+    { id: 'collaboration',   label: 'Collaboration & Audit', icon: Shield },
+    { id: 'settings',        label: 'Settings & Schema',     icon: Settings },
+  ];
+
+  const navItems = isAdmin ? [...baseItems, ...adminItems] : baseItems;
 
   return (
     <aside className="w-56 bg-white border-r border-stone-200 flex flex-col justify-between shrink-0 hidden md:flex">
@@ -63,14 +77,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-stone-400'}`} />
                   <span>{item.label}</span>
                 </div>
+                {/* Unread badge on collaboration */}
+                {item.id === 'collaboration' && unreadCount > 0 && (
+                  <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                    isActive ? 'bg-white text-emerald-900' : 'bg-emerald-800 text-white'
+                  }`}>
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom Storage & Public Site Badge */}
+      {/* Bottom — role pill + public site link */}
       <div className="p-4 border-t border-stone-100 space-y-2">
+        {/* Role indicator */}
+        <div className={`px-3 py-2 rounded-xl text-[11px] font-semibold flex items-center gap-2 ${
+          isAdmin ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-stone-50 text-stone-500 border border-stone-200'
+        }`}>
+          <Shield className="w-3.5 h-3.5 shrink-0" />
+          {isAdmin ? 'Administrator' : 'Viewer'}
+        </div>
+
         <button
           onClick={onViewPublicSite}
           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-stone-600 hover:text-emerald-900 hover:bg-emerald-50/50 rounded-xl transition-colors"

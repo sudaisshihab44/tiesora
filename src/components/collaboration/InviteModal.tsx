@@ -15,7 +15,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
   onInviteSent,
 }) => {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('contributor');
+  const [role, setRole] = useState<Role>('viewer');
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,15 +124,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                   className="w-full px-3 py-2.5 border border-stone-300 rounded-lg outline-none focus:border-emerald-700 bg-white text-sm"
                 >
                   <option value="viewer">Viewer (Read-only access)</option>
-                  <option value="contributor">Contributor (Can upload memories & suggest edits)</option>
-                  <option value="editor">Editor (Can add & edit relatives)</option>
                   <option value="admin">Administrator (Full management access)</option>
                 </select>
                 <p className="text-[11px] text-stone-500 mt-1.5 leading-relaxed">
-                  {role === 'viewer' && 'Viewers can explore the family tree and view permitted memories.'}
-                  {role === 'contributor' && 'Contributors can upload photos and suggest changes that admins approve.'}
-                  {role === 'editor' && 'Editors can directly update family members and build new branches.'}
-                  {role === 'admin' && 'Administrators have full management access including review queues and roles.'}
+                  {role === 'viewer' && 'Viewers can explore the family tree and view permitted memories and events. They cannot add, edit, or delete any family records.'}
+                  {role === 'admin' && 'Administrators have full management access including adding people, managing relationships, and controlling user access.'}
                 </p>
               </div>
 

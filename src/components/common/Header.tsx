@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Family, UserProfile, Role, AppNotification } from '../../types';
+import { Family, UserProfile, AppNotification } from '../../types';
 import { storage } from '../../services/storage';
 import { PWAInstallButton } from './PWAInstallButton';
 import { 
@@ -51,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
+  const isAdminUser = currentRole === 'admin';
 
   const handleMarkAllRead = () => {
     storage.markAllNotificationsAsRead();
@@ -63,16 +64,6 @@ export const Header: React.FC<HeaderProps> = ({
     setIsNotifOpen(false);
     if (notif.link_tab) {
       onNavigate(notif.link_tab);
-    }
-  };
-
-  const handleRoleQuickSwitch = (newRole: Role) => {
-    // Update current user's membership role for testing
-    const memberships = storage.getMemberships(family.id);
-    const myMem = memberships.find(m => m.user_id === currentUser.id);
-    if (myMem) {
-      storage.updateMemberRole(myMem.id, newRole);
-      onRefreshNotifications();
     }
   };
 
@@ -156,21 +147,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Role Testing Badge */}
+        {/* Role indicator badge */}
         <div className="hidden lg:flex items-center gap-1 px-2.5 py-1 bg-stone-100 rounded-lg text-[11px] text-stone-600 border border-stone-200">
           <span className="text-stone-400">Role:</span>
-          <select
-            value={currentRole}
-            onChange={(e) => handleRoleQuickSwitch(e.target.value as Role)}
-            className="bg-transparent font-semibold text-emerald-900 outline-none cursor-pointer capitalize text-[11px]"
-            title="Switch your role permission to test view/edit access"
-          >
-            <option value="owner">Owner</option>
-            <option value="admin">Admin</option>
-            <option value="editor">Editor</option>
-            <option value="contributor">Contributor</option>
-            <option value="viewer">Viewer</option>
-          </select>
+          <span className={`font-semibold capitalize ${isAdminUser ? 'text-emerald-900' : 'text-stone-700'}`}>
+            {isAdminUser ? 'Admin' : 'Viewer'}
+          </span>
         </div>
 
         {/* Notifications Bell */}
@@ -259,36 +241,42 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="px-3 py-2 border-b border-stone-100 mb-1">
                 <p className="font-bold text-stone-900 truncate">{currentUser.display_name}</p>
                 <p className="text-[11px] text-stone-400 truncate">{currentUser.email}</p>
+                <span className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+                  isAdminUser ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-600'
+                }`}>
+                  {isAdminUser ? 'Admin' : 'Viewer'}
+                </span>
               </div>
 
+              {isAdminUser && (
+                <button
+                  onClick={() => { onNavigate('user-management'); setIsUserMenuOpen(false); }}
+                  className="w-full text-left px-3 py-2 hover:bg-stone-50 rounded-xl text-stone-700 flex items-center gap-2 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5 text-stone-400" />
+                  User Management
+                </button>
+              )}
+
               <button
-                onClick={() => {
-                  onNavigate('settings');
-                  setIsUserMenuOpen(false);
-                }}
+                onClick={() => { onNavigate('settings'); setIsUserMenuOpen(false); }}
                 className="w-full text-left px-3 py-2 hover:bg-stone-50 rounded-xl text-stone-700 flex items-center gap-2 transition-colors"
               >
                 <Settings className="w-3.5 h-3.5 text-stone-400" />
-                Workspace Settings
+                {isAdminUser ? 'Workspace Settings' : 'Settings'}
               </button>
 
               <button
-                onClick={() => {
-                  onViewPublicSite();
-                  setIsUserMenuOpen(false);
-                }}
+                onClick={() => { onViewPublicSite(); setIsUserMenuOpen(false); }}
                 className="w-full text-left px-3 py-2 hover:bg-stone-50 rounded-xl text-stone-700 flex items-center gap-2 transition-colors"
               >
                 <Globe className="w-3.5 h-3.5 text-stone-400" />
-                View Public Landing Site
+                View Public Landing
               </button>
 
               <div className="pt-1 border-t border-stone-100 mt-1">
                 <button
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    onSignOut();
-                  }}
+                  onClick={() => { setIsUserMenuOpen(false); onSignOut(); }}
                   className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-700 rounded-xl flex items-center gap-2 transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" />

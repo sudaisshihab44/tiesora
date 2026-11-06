@@ -11,6 +11,7 @@ import {
   List,
   UserCheck,
   X,
+  FileUp,
 } from 'lucide-react';
 import { TreeViewMode, FamilyPerson } from '../../types';
 
@@ -26,7 +27,8 @@ interface TreeControlsProps {
   onSelectPerson: (person: FamilyPerson) => void;
   viewMode: TreeViewMode;
   onViewModeChange: (mode: TreeViewMode) => void;
-  onAddNewMember: () => void;
+  onAddNewMember?: () => void;
+  onImportFamilyTree?: () => void;
   selectedPerson?: FamilyPerson;
 }
 
@@ -43,6 +45,7 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
   viewMode,
   onViewModeChange,
   onAddNewMember,
+  onImportFamilyTree,
   selectedPerson,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -171,7 +174,8 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
           </button>
         </div>
 
-        {/* Add Member */}
+        {/* Add Member — admin only */}
+        {onAddNewMember && (
         <button
           onClick={onAddNewMember}
           className="px-3 py-1.5 bg-emerald-800 text-white hover:bg-emerald-900 rounded-xl font-medium text-xs shadow-sm hover:shadow transition-all flex items-center gap-1 whitespace-nowrap"
@@ -180,6 +184,20 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
           <span className="hidden sm:inline">Add Member</span>
           <span className="sm:hidden">Add</span>
         </button>
+        )}
+
+        {/* Import Family Tree — admin only */}
+        {onImportFamilyTree && (
+        <button
+          onClick={onImportFamilyTree}
+          className="px-3 py-1.5 bg-[#285C43] text-white hover:bg-[#193D2D] rounded-xl font-medium text-xs shadow-sm hover:shadow transition-all flex items-center gap-1 whitespace-nowrap"
+          title="Import genealogy PDF"
+        >
+          <FileUp className="w-3.5 h-3.5" />
+          <span className="hidden md:inline">Import PDF</span>
+          <span className="md:hidden">Import</span>
+        </button>
+        )}
       </div>
     </div>
   );

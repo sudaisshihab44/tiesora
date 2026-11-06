@@ -43,7 +43,7 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
 
   const currentUser = storage.getCurrentUser();
   const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
-  const canManage = currentRole === 'owner' || currentRole === 'admin';
+  const canManage = currentRole === 'admin';
   const [privacySettings, setPrivacySettings] = useState(family.privacy_settings || {
     hideLivingDates: false,
     hideLivingBiographies: false,
@@ -162,7 +162,7 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
       {activeTab === 'members' && (
         <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-xs">
           <div className="p-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between text-xs text-stone-500">
-            <span>Role-Based Access Hierarchy: Owner &gt; Admin &gt; Editor &gt; Contributor &gt; Viewer</span>
+            <span>Role Hierarchy: <strong className="text-stone-700">Admin</strong> (full access) &gt; <strong className="text-stone-700">Viewer</strong> (read-only)</span>
             <span>Your current role: <strong className="text-emerald-900 uppercase">{currentRole}</strong></span>
           </div>
 
@@ -189,16 +189,14 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
                   </td>
                   <td className="py-3.5 px-5 text-stone-600">{mem.user_email}</td>
                   <td className="py-3.5 px-5">
-                    {canManage && mem.role !== 'owner' ? (
+                    {canManage && mem.role !== 'admin' || (canManage && currentUser.id !== mem.user_id) ? (
                       <select
                         value={mem.role}
                         onChange={(e) => handleRoleChange(mem.id, e.target.value as Role)}
                         className="px-2.5 py-1 bg-stone-50 border border-stone-300 rounded-lg text-xs font-medium text-stone-800 outline-none focus:border-emerald-700"
                       >
                         <option value="viewer">Viewer</option>
-                        <option value="contributor">Contributor</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Administrator</option>
+                        <option value="admin">Admin</option>
                       </select>
                     ) : (
                       <span className="font-semibold capitalize text-stone-800">

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Info</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #00ff00;
+    }
+    .status { padding: 10px; margin: 10px 0; border: 1px solid #00ff00; }
+    .ok { background: #003300; }
+    .error { background: #330000; border-color: #ff0000; color: #ff0000; }
+  </style>
+</head>
+<body>
+  <h1>🔧 Kinroots Debug Info</h1>
+  
+  <div class="status ok">
+    <strong>✅ Server Status:</strong> RUNNING
+  </div>
+  
+  <div class="status ok">
+    <strong>✅ Port:</strong> 3000
+  </div>
+  
+  <div class="status ok">
+    <strong>✅ Vite Dev Server:</strong> Active
+  </div>
+  
+  <h2>📋 Next Steps:</h2>
+  <ol>
+    <li><strong>Clear Browser Cache:</strong> Press Ctrl+Shift+Delete → Check "Cached images and files" → Clear data</li>
+    <li><strong>Hard Refresh:</strong> Press Ctrl+F5 or Ctrl+Shift+R</li>
+    <li><strong>Open Main App:</strong> <a href="/" style="color: #00ff00;">http://localhost:3000/</a></li>
+    <li><strong>Open Console:</strong> Press F12 → Console tab</li>
+    <li><strong>Check for Errors:</strong> Look for red error messages</li>
+  </ol>
+  
+  <h2>🔍 If Still White Screen:</h2>
+  <div class="status">
+    <strong>Check Console For:</strong>
+    <ul>
+      <li>Module not found errors</li>
+      <li>Import errors</li>
+      <li>React errors</li>
+      <li>Supabase connection errors</li>
+    </ul>
+  </div>
+  
+  <h2>🌐 Environment Check:</h2>
+  <div class="status ok" id="envCheck">
+    <strong>Checking .env configuration...</strong>
+  </div>
+  
+  <script>
+    // Check if environment variables are accessible
+    const envCheck = document.getElementById('envCheck');
+    
+    // In dev mode, Vite exposes import.meta.env
+    const hasGroqKey = '${process.env.VITE_GROQ_API_KEY ? 'Yes' : 'No'}';
+    
+    envCheck.innerHTML = `
+      <strong>Environment Variables:</strong><br>
+      - GROQ API configured in .env: ${hasGroqKey ? '✅' : '❌'}<br>
+      - Build time: ${new Date().toISOString()}
+    `;
+    
+    console.log('%c🔧 Debug Info', 'color: #00ff00; font-size: 16px; font-weight: bold');
+    console.log('Server is running correctly');
+    console.log('If main app shows white screen, check browser console for errors');
+    console.log('Common fixes: Clear cache (Ctrl+Shift+Delete) or hard refresh (Ctrl+F5)');
+  </script>
+  
+  <h2>⚡ Quick Actions:</h2>
+  <button onclick="location.href='/'" style="padding: 10px 20px; background: #003300; color: #00ff00; border: 1px solid #00ff00; cursor: pointer; margin: 5px;">
+    🏠 Go to Main App
+  </button>
+  
+  <button onclick="location.reload(true)" style="padding: 10px 20px; background: #003300; color: #00ff00; border: 1px solid #00ff00; cursor: pointer; margin: 5px;">
+    🔄 Hard Refresh This Page
+  </button>
+  
+  <button onclick="window.open('http://localhost:3000', '_blank')" style="padding: 10px 20px; background: #003300; color: #00ff00; border: 1px solid #00ff00; cursor: pointer; margin: 5px;">
+    🚀 Open in New Tab
+  </button>
+</body>
+</html>

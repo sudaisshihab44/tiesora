@@ -33,9 +33,9 @@ interface DashboardProps {
   auditLogs: AuditLog[];
   onNavigate: (tab: string) => void;
   onSelectPerson: (person: FamilyPerson) => void;
-  onAddRelative: (targetPerson?: FamilyPerson) => void;
-  onUploadMemory: () => void;
-  onInviteRelative: () => void;
+  onAddRelative?: (targetPerson?: FamilyPerson) => void;
+  onUploadMemory?: () => void;
+  onInviteRelative?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -89,6 +89,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Compass className="w-3.5 h-3.5 text-emerald-200" />
               Find Relationship
             </button>
+            {onAddRelative && (
             <button
               onClick={() => onAddRelative()}
               className="px-3 py-2 bg-emerald-900/60 hover:bg-emerald-900 border border-emerald-400/30 text-white font-medium rounded-lg text-xs transition-all flex items-center gap-1.5"
@@ -96,6 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <UserPlus className="w-3.5 h-3.5 text-emerald-200" />
               Add Member
             </button>
+            )}
           </div>
         </div>
         <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-emerald-700/20 blur-2xl pointer-events-none" />

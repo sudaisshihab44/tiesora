@@ -10,7 +10,8 @@ import {
   AuditLog,
   UserProfile,
   Role,
-  Invitation
+  Invitation,
+  normalizeRole,
 } from '../types';
 import { 
   SAMPLE_FAMILY, 
@@ -161,10 +162,10 @@ class TiesoraStorage {
     return families.find(f => f.id === currentId) || families[0] || SAMPLE_FAMILY;
   }
 
-  public createFamily(family: Omit<Family, 'id' | 'created_at' | 'updated_at'>): Family {
+  public createFamily(family: Omit<Family, 'id' | 'created_at' | 'updated_at'>, _forceId?: string): Family {
     const newFamily: Family = {
       ...family,
-      id: `fam_${Date.now()}`,
+      id: _forceId ?? `fam_${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -172,14 +173,14 @@ class TiesoraStorage {
     localStorage.setItem(STORAGE_KEYS.FAMILIES, JSON.stringify(families));
     this.setCurrentFamilyId(newFamily.id);
 
-    // Add current user as owner membership
+    // Add current user as admin membership (family creator is always admin)
     const user = this.getCurrentUser();
     this.addMembership({
       family_id: newFamily.id,
       user_id: user.id,
       user_email: user.email,
       user_name: user.display_name,
-      role: 'owner',
+      role: 'admin',
       status: 'active',
     });
 
@@ -493,18 +494,29 @@ class TiesoraStorage {
   public updateMemberRole(membershipId: string, newRole: Role) {
     const data = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
     const all: FamilyMembership[] = data ? JSON.parse(data) : [...SAMPLE_MEMBERSHIPS];
+
+    // Guard: prevent demoting the last admin
+    const targetMem = all.find(m => m.id === membershipId);
+    if (targetMem && targetMem.role === 'admin' && newRole === 'viewer') {
+      const adminCount = all.filter(
+        m => m.family_id === targetMem.family_id && m.role === 'admin' && m.status === 'active' && m.id !== membershipId
+      ).length;
+      if (adminCount === 0) {
+        throw new Error('Cannot demote the last administrator. Assign another admin first.');
+      }
+    }
+
     const updated = all.map(m => m.id === membershipId ? { ...m, role: newRole } : m);
     localStorage.setItem(STORAGE_KEYS.MEMBERSHIPS, JSON.stringify(updated));
 
-    const target = all.find(m => m.id === membershipId);
-    if (target) {
+    if (targetMem) {
       this.logAudit({
-        family_id: target.family_id,
+        family_id: targetMem.family_id,
         action: 'Updated Member Role',
         target_type: 'membership',
-        target_id: target.id,
-        target_name: target.user_name,
-        details: `Assigned ${newRole} role to ${target.user_email}.`,
+        target_id: targetMem.id,
+        target_name: targetMem.user_name,
+        details: `Assigned ${newRole} role to ${targetMem.user_email}.`,
       });
     }
 
@@ -513,8 +525,66 @@ class TiesoraStorage {
 
   public getUserRoleInFamily(userId: string, familyId: string): Role {
     const memberships = this.getMemberships(familyId);
-    const member = memberships.find(m => m.user_id === userId);
-    return member ? member.role : 'viewer';
+    const member = memberships.find(m => m.user_id === userId && m.status === 'active');
+    if (!member) return 'viewer';
+    // Normalize any legacy role value stored in localStorage from old data
+    return normalizeRole(member.role);
+  }
+
+  /** Revoke a membership (set status to 'suspended'). Guards against removing the last admin. */
+  public revokeMembership(membershipId: string): { success: boolean; error?: string } {
+    const data = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
+    const all: FamilyMembership[] = data ? JSON.parse(data) : [...SAMPLE_MEMBERSHIPS];
+    const target = all.find(m => m.id === membershipId);
+    if (!target) return { success: false, error: 'Membership not found.' };
+
+    // Guard: last admin check
+    if (target.role === 'admin') {
+      const adminCount = all.filter(
+        m => m.family_id === target.family_id && m.role === 'admin' && m.status === 'active' && m.id !== membershipId
+      ).length;
+      if (adminCount === 0) {
+        return { success: false, error: 'Cannot revoke the last administrator. Assign another admin first.' };
+      }
+    }
+
+    const updated = all.map(m => m.id === membershipId ? { ...m, status: 'suspended' as const } : m);
+    localStorage.setItem(STORAGE_KEYS.MEMBERSHIPS, JSON.stringify(updated));
+
+    this.logAudit({
+      family_id: target.family_id,
+      action: 'Revoked Access',
+      target_type: 'membership',
+      target_id: target.id,
+      target_name: target.user_name,
+      details: `Access revoked for ${target.user_email}.`,
+    });
+
+    this.notify();
+    return { success: true };
+  }
+
+  /** Resend / regenerate an invitation for an invited (not yet accepted) membership. */
+  public resendInvitation(membershipId: string): string | null {
+    const data = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
+    const all: FamilyMembership[] = data ? JSON.parse(data) : [...SAMPLE_MEMBERSHIPS];
+    const target = all.find(m => m.id === membershipId && m.status === 'invited');
+    if (!target) return null;
+
+    const token = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 14)}`;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    this.addInvitation({
+      family_id: target.family_id,
+      email: target.user_email,
+      role: target.role,
+      token,
+      expires_at: expiresAt.toISOString(),
+      created_by: this.getCurrentUser().id,
+    });
+
+    return `${window.location.origin}/#invite=${token}`;
   }
 
   // --- Invitations ---
@@ -862,7 +932,7 @@ class TiesoraStorage {
           user_id: currentUser.id,
           user_email: currentUser.email,
           user_name: currentUser.display_name,
-          role: 'owner',
+          role: 'admin' as Role,
           status: 'active',
           created_at: new Date().toISOString(),
         });

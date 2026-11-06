@@ -17,12 +17,14 @@ interface LandingPageProps {
   onStartBuilding: () => void;
   onExploreDemo: () => void;
   onSignIn: () => void;
+  onSignUp: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartBuilding,
   onExploreDemo,
   onSignIn,
+  onSignUp,
 }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -33,7 +35,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     },
     {
       q: 'Can multiple relatives collaborate on the same family tree?',
-      a: 'Yes. Tiesora provides five distinct role levels: Family Owner, Administrator, Editor, Contributor, and Viewer. Family owners can send secure invitation links, designate permissions, and review edit proposals submitted by relatives before changes are permanently saved.',
+      a: 'Yes. Tiesora supports two role levels: Administrator and Viewer. Administrators have full access to add and edit family members, manage relationships, upload memories, and manage user access. Viewers can browse the tree, search members, and view authorized content — but cannot make any changes. Admins send secure invitation links and assign the appropriate role.',
     },
     {
       q: 'Is our family data private and secure?',
@@ -83,10 +85,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Sign In
             </button>
             <button
-              onClick={onStartBuilding}
+              onClick={onSignUp}
               className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow transition-all whitespace-nowrap"
             >
-              Build Your Tree
+              Sign Up Free
             </button>
           </div>
         </div>
@@ -264,7 +266,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <h3 className="text-base font-bold text-stone-900">Secure Relative Collaboration</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Invite family members with designated roles (Owner, Admin, Editor, Contributor, Viewer). Review edit suggestions in a clean approval queue and audit all historical modifications.
+              Invite family members with two clear role levels — Admin or Viewer. Admins can build and manage the tree; Viewers can explore and browse. A clean audit trail records all changes.
             </p>
           </div>
         </div>
@@ -344,8 +346,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button onClick={onSignIn} className="hover:text-stone-900 transition-colors">
               Sign In
             </button>
-            <button onClick={onStartBuilding} className="hover:text-stone-900 transition-colors font-medium text-emerald-800">
-              Get Started
+            <button onClick={onSignUp} className="hover:text-stone-900 transition-colors font-medium text-emerald-800">
+              Sign Up Free
+            </button>
+            <button onClick={onStartBuilding} className="hover:text-stone-900 transition-colors">
+              Build Your Tree
             </button>
             <span>© 2026 Tiesora</span>
           </div>

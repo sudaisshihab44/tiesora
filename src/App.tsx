@@ -1,77 +1,103 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { storage } from './services/storage';
-import { getSessionUser, onAuthStateChange, signOut } from './services/auth';
+import { getSessionUser, onAuthStateChange, signOut, getRoleFromDB } from './services/auth';
 import { isSupabaseConfigured } from './services/supabase';
-import { 
-  Family, 
-  FamilyPerson, 
-  Relationship, 
-  Memory, 
-  FamilyEvent, 
-  FamilyMembership, 
-  ChangeRequest, 
-  AppNotification, 
-  AuditLog, 
-  UserProfile 
+import {
+  Family,
+  FamilyPerson,
+  Relationship,
+  Memory,
+  FamilyEvent,
+  FamilyMembership,
+  ChangeRequest,
+  AppNotification,
+  AuditLog,
+  UserProfile,
+  AuthView,
+  Role,
+  normalizeRole,
 } from './types';
-import { Header } from './components/common/Header';
-import { Sidebar } from './components/common/Sidebar';
+
+// Layout
+import { Header }    from './components/common/Header';
+import { Sidebar }   from './components/common/Sidebar';
 import { MobileNav } from './components/common/MobileNav';
-import { Dashboard } from './components/dashboard/Dashboard';
-import { FamilyTreeCanvas } from './components/tree/FamilyTreeCanvas';
-import { AddRelativeDialog } from './components/tree/AddRelativeDialog';
-import { PersonProfileDrawer } from './components/profile/PersonProfileDrawer';
+
+// App pages
+import { Dashboard }            from './components/dashboard/Dashboard';
+import { ViewerDashboard }      from './components/dashboard/ViewerDashboard';
+import { FamilyTreeCanvas }     from './components/tree/FamilyTreeCanvas';
+import { AddRelativeDialog }    from './components/tree/AddRelativeDialog';
+import { PersonProfileDrawer }  from './components/profile/PersonProfileDrawer';
 import { RelationshipExplorer } from './components/relationships/RelationshipExplorer';
-import { MemoriesPage } from './components/memories/MemoriesPage';
-import { EventsPage } from './components/events/EventsPage';
-import { CollaborationPage } from './components/collaboration/CollaborationPage';
-import { SettingsPage } from './components/settings/SettingsPage';
-import { LandingPage } from './components/landing/LandingPage';
-import { AuthModal } from './components/auth/AuthModal';
-import { OnboardingWizard } from './components/auth/OnboardingWizard';
+import { MemoriesPage }         from './components/memories/MemoriesPage';
+import { EventsPage }           from './components/events/EventsPage';
+import { CollaborationPage }    from './components/collaboration/CollaborationPage';
+import { SettingsPage }         from './components/settings/SettingsPage';
+import { UserManagementPage }   from './components/admin/UserManagementPage';
 import { FamilyAssistantModal } from './components/ai/FamilyAssistantModal';
 
+// Auth & onboarding pages
+import { LandingPage }          from './components/landing/LandingPage';
+import { SignInPage }           from './components/auth/SignInPage';
+import { SignUpPage }           from './components/auth/SignUpPage';
+import { VerifyEmailPage }      from './components/auth/VerifyEmailPage';
+import { ResetPasswordPage }    from './components/auth/ResetPasswordPage';
+import { OnboardingChoicePage } from './components/auth/OnboardingChoicePage';
+import { OnboardingWizard }     from './components/auth/OnboardingWizard';
+import { JoinFamilyPage }       from './components/auth/JoinFamilyPage';
+
+// ── Admin-only tabs ────────────────────────────────────────────────────────────
+const ADMIN_ONLY_TABS = ['user-management', 'collaboration', 'settings'] as const;
+
 export default function App() {
-  // ── Auth & View States ──────────────────────────────────────────────────────
-  // In demo mode (no Supabase), start on the landing page so the user can
-  // choose to sign in or explore the demo. When Supabase is configured, check
-  // for an existing session before showing the landing page.
-  const [isPublicView, setIsPublicView] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [currentTab, setCurrentTab] = useState<string>('tree');
+  // ── Auth & routing ──────────────────────────────────────────────────────────
+  const [authView,     setAuthView]     = useState<AuthView>('landing');
+  const [authChecked,  setAuthChecked]  = useState(false);
+  const [currentUser,  setCurrentUser]  = useState<UserProfile | null>(null);
+  const [pendingEmail, setPendingEmail] = useState('');
+  // Token from URL hash for invitation deep-links
+  const [inviteToken,  setInviteToken]  = useState('');
 
-  // Modals & Drawers
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  /**
+   * verifiedRole — the ONLY role the rest of the app trusts.
+   * Set only from DB-verified sources, never from URL/localStorage/form fields.
+   */
+  const [verifiedRole,     setVerifiedRole]     = useState<Role>('viewer');
+  const [verifiedFamilyId, setVerifiedFamilyId] = useState<string>('');
+
+  /**
+   * Prevents onAuthStateChange INITIAL_SESSION from racing with checkSession().
+   */
+  const roleCheckInProgress = useRef(false);
+
+  const [currentTab,       setCurrentTab]       = useState<string>('dashboard');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<FamilyPerson | null>(null);
+  const [isAssistantOpen,  setIsAssistantOpen]  = useState(false);
+
+  // Person / tree drawers
+  const [selectedPerson,      setSelectedPerson]      = useState<FamilyPerson | null>(null);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
-
   const [addRelativeState, setAddRelativeState] = useState<{
-    isOpen: boolean;
-    targetPerson?: FamilyPerson;
-    editPerson?: FamilyPerson;
+    isOpen: boolean; targetPerson?: FamilyPerson; editPerson?: FamilyPerson;
   }>({ isOpen: false });
-
   const [relExplorerPair, setRelExplorerPair] = useState<{ aId?: string; bId?: string }>({});
 
-  // ── Data State (from storage adapter) ───────────────────────────────────────
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [currentFamily, setCurrentFamily] = useState<Family>(storage.getCurrentFamily());
-  const [people, setPeople] = useState<FamilyPerson[]>([]);
-  const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [events, setEvents] = useState<FamilyEvent[]>([]);
-  const [memberships, setMemberships] = useState<FamilyMembership[]>([]);
+  // ── Data state ────────────────────────────────────────────────────────────
+  const [families,       setFamilies]       = useState<Family[]>([]);
+  const [currentFamily,  setCurrentFamily]  = useState<Family>(storage.getCurrentFamily());
+  const [people,         setPeople]         = useState<FamilyPerson[]>([]);
+  const [relationships,  setRelationships]  = useState<Relationship[]>([]);
+  const [memories,       setMemories]       = useState<Memory[]>([]);
+  const [events,         setEvents]         = useState<FamilyEvent[]>([]);
+  const [memberships,    setMemberships]    = useState<FamilyMembership[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
+  const [auditLogs,      setAuditLogs]      = useState<AuditLog[]>([]);
 
-  // ── Refresh all state from storage ──────────────────────────────────────────
   const refreshAll = useCallback(() => {
-    const user = storage.getCurrentUser();
-    const fams = storage.getFamilies();
+    const user    = storage.getCurrentUser();
+    const fams    = storage.getFamilies();
     const currFam = storage.getCurrentFamily();
     setCurrentUser(user);
     setFamilies(fams);
@@ -86,70 +112,154 @@ export default function App() {
     setAuditLogs(storage.getAuditLogs(currFam.id));
   }, []);
 
-  // ── Boot: check for existing session ────────────────────────────────────────
+  const applyVerifiedRole = useCallback((role: Role, familyId: string) => {
+    setVerifiedRole(role);
+    setVerifiedFamilyId(familyId);
+    if (familyId) storage.setCurrentFamilyId(familyId);
+  }, []);
+
+  // ── Re-verify role from DB and enter app ─────────────────────────────────
+  const enterApp = useCallback(async (user: UserProfile) => {
+    storage.updateCurrentUser(user);
+    setCurrentUser(user);
+    const dbRole = await getRoleFromDB(user.id);
+    if (dbRole) {
+      applyVerifiedRole(dbRole.role, dbRole.familyId);
+    } else {
+      const fam = storage.getCurrentFamily();
+      applyVerifiedRole('viewer', fam.id);
+    }
+    refreshAll();
+    setAuthView('app');
+    setCurrentTab('dashboard');
+  }, [applyVerifiedRole, refreshAll]);
+
+  // ── Boot: check URL hash then existing session ────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
+    const hash = window.location.hash;
+
+    // Password-reset redirect
+    const isResetHash =
+      hash.includes('type=recovery') ||
+      hash.startsWith('#reset-password') ||
+      (hash.includes('access_token') && hash.includes('type=recovery'));
+
+    // Invitation deep-link
+    const inviteMatch = hash.match(/[#&]invite=([^&]+)/);
+
+    if (isResetHash) {
+      setAuthView('reset-password');
+      setAuthChecked(true);
+      return;
+    }
+
+    if (inviteMatch) {
+      window.history.replaceState(null, '', window.location.pathname);
+      setInviteToken(inviteMatch[1]);
+      // If already signed in, go to join-family. Otherwise sign up first.
+      // checkSession() below will handle the signed-in case.
+    }
+
     async function checkSession() {
+      roleCheckInProgress.current = true;
       const sessionUser = await getSessionUser();
-      if (cancelled) return;
+      if (cancelled) { roleCheckInProgress.current = false; return; }
 
       if (sessionUser) {
-        // Existing session found — enter the app
         storage.updateCurrentUser(sessionUser);
-        setIsPublicView(false);
-        refreshAll();
+        setCurrentUser(sessionUser);
+
+        const dbRole = await getRoleFromDB(sessionUser.id);
+        if (!cancelled) {
+          if (dbRole) {
+            applyVerifiedRole(dbRole.role, dbRole.familyId);
+            // If there's a pending invite, let them join a second family
+            if (inviteMatch) {
+              setInviteToken(inviteMatch[1]);
+              setAuthView('join-family');
+            } else {
+              refreshAll();
+              setAuthView('app');
+            }
+          } else {
+            // Authenticated but no family yet — send to onboarding choice
+            // Handle pending invite token if present
+            if (inviteMatch) {
+              setInviteToken(inviteMatch[1]);
+              setAuthView('join-family');
+            } else {
+              setAuthView('onboarding-choice');
+            }
+          }
+        }
       }
-      // else: stay on landing page (isPublicView stays true)
-      setAuthChecked(true);
+      if (!cancelled) setAuthChecked(true);
+      roleCheckInProgress.current = false;
     }
 
     checkSession();
 
-    // Subscribe to auth state changes (Supabase mode)
-    const unsubAuth = onAuthStateChange((user) => {
+    const unsubAuth = onAuthStateChange(async (user, event) => {
       if (cancelled) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthView('reset-password');
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION' && roleCheckInProgress.current) return;
+
       if (user) {
-        setIsPublicView(false);
-        refreshAll();
+        storage.updateCurrentUser(user);
+        setCurrentUser(user);
+        const dbRole = await getRoleFromDB(user.id);
+        if (!cancelled) {
+          if (dbRole) {
+            applyVerifiedRole(dbRole.role, dbRole.familyId);
+            setAuthView(v => v === 'reset-password' ? v : 'app');
+            refreshAll();
+          } else {
+            // New user who just confirmed their email — send to onboarding
+            setAuthView('onboarding-choice');
+          }
+        }
       } else {
-        // Signed out
-        setIsPublicView(true);
+        setAuthView('landing');
         setCurrentUser(null);
+        setVerifiedRole('viewer');
+        setVerifiedFamilyId('');
       }
     });
 
     return () => { cancelled = true; unsubAuth(); };
+  }, [refreshAll, applyVerifiedRole, enterApp]);
+
+  useEffect(() => {
+    const unsub = storage.subscribe(() => refreshAll());
+    return unsub;
   }, [refreshAll]);
 
-  // ── Subscribe to storage changes ───────────────────────────────────────────
-  useEffect(() => {
-    const unsubscribe = storage.subscribe(() => refreshAll());
-    return unsubscribe;
-  }, [refreshAll]);
-
-  // ── Parse invite token from URL hash ────────────────────────────────────────
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const hash = window.location.hash;
-    const inviteMatch = hash.match(/invite=([^&]+)/);
-    if (inviteMatch) {
-      // An invite link was opened — show auth modal so user can sign in/up
-      // The token will be validated server-side when Supabase is configured.
-      setIsAuthModalOpen(true);
-      // Clear the hash so it doesn't re-trigger
-      window.history.replaceState(null, '', window.location.pathname);
+  // ── Tab resolution — redirect viewers off admin-only tabs ─────────────────
+  const resolvedTab = (() => {
+    if (verifiedRole !== 'admin' && ADMIN_ONLY_TABS.includes(currentTab as any)) {
+      return 'dashboard';
     }
-  }, []);
+    return currentTab;
+  })();
+  const isAdmin = verifiedRole === 'admin';
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleSelectPerson = (person: FamilyPerson) => {
     setSelectedPerson(person);
     setIsProfileDrawerOpen(true);
   };
 
   const handleExploreRelationship = (person: FamilyPerson) => {
-    const myPerson = people.find(p => p.full_name.includes(currentUser?.display_name.split(' ')[0] ?? '')) || people[0];
+    const myPerson =
+      people.find(p => p.full_name.includes(currentUser?.display_name.split(' ')[0] ?? '')) ||
+      people[0];
     setRelExplorerPair({
       aId: myPerson?.id !== person.id ? myPerson?.id : people.find(p => p.id !== person.id)?.id,
       bId: person.id,
@@ -171,12 +281,14 @@ export default function App() {
 
   const handleSignOut = async () => {
     await signOut();
-    setIsPublicView(true);
+    setAuthView('landing');
     setCurrentUser(null);
-    // In demo mode, storage keeps the user — reset to landing is enough
+    setVerifiedRole('viewer');
+    setVerifiedFamilyId('');
+    setInviteToken('');
   };
 
-  // ── Loading state while checking session ─────────────────────────────────────
+  // ── Loading spinner ───────────────────────────────────────────────────────
   if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
@@ -185,51 +297,162 @@ export default function App() {
     );
   }
 
-  // ── Public / Landing view ────────────────────────────────────────────────────
-  if (isPublicView || !currentUser) {
+  // ══════════════════════════════════════════════════════════════════════════
+  // STANDALONE AUTH VIEWS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  if (authView === 'landing') {
+    return (
+      <LandingPage
+        onStartBuilding={() => setAuthView('signup')}
+        onExploreDemo={() => {
+          storage.resetToSampleData();
+          refreshAll();
+          const fam  = storage.getCurrentFamily();
+          const user = storage.getCurrentUser();
+          const role = normalizeRole(storage.getUserRoleInFamily(user.id, fam.id));
+          applyVerifiedRole(role, fam.id);
+          setAuthView('app');
+        }}
+        onSignIn={() => setAuthView('signin')}
+        onSignUp={() => setAuthView('signup')}
+      />
+    );
+  }
+
+  if (authView === 'signin') {
     return (
       <>
-        <LandingPage
-          onStartBuilding={() => {
-            setIsOnboardingOpen(true);
-            setIsPublicView(false);
-          }}
-          onExploreDemo={() => {
-            // Demo mode: load sample data and enter app directly
-            storage.resetToSampleData();
-            refreshAll();
-            setIsPublicView(false);
-          }}
-          onSignIn={() => setIsAuthModalOpen(true)}
-        />
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          onSuccess={(user) => {
+        <SignInPage
+          onSuccess={(user, role, familyId) => {
             storage.updateCurrentUser(user);
             setCurrentUser(user);
-            setIsPublicView(false);
+            applyVerifiedRole(role, familyId);
             refreshAll();
+            setAuthView('app');
+            setCurrentTab('dashboard');
           }}
-          onStartOnboarding={() => {
-            setIsAuthModalOpen(false);
-            setIsOnboardingOpen(true);
+          onNeedOnboarding={(user) => {
+            // Authenticated user with no family — choose Create or Join
+            storage.updateCurrentUser(user);
+            setCurrentUser(user);
+            setAuthView('onboarding-choice');
           }}
+          onGoSignUp={() => setAuthView('signup')}
+          onGoLanding={() => setAuthView('landing')}
         />
+        {/* Onboarding wizard accessible from sign-in context too */}
         <OnboardingWizard
           isOpen={isOnboardingOpen}
           onClose={() => setIsOnboardingOpen(false)}
-          onComplete={() => {
-            refreshAll();
-            setIsPublicView(false);
-            setCurrentTab('tree');
+          onComplete={async () => {
+            if (currentUser) await enterApp(currentUser);
           }}
         />
       </>
     );
   }
 
-  // ── Authenticated App Shell ──────────────────────────────────────────────────
+  if (authView === 'signup') {
+    return (
+      <SignUpPage
+        onSuccess={(user, needsConfirmation) => {
+          storage.updateCurrentUser(user);
+          setCurrentUser(user);
+          setPendingEmail(user.email);
+          if (needsConfirmation) {
+            // Email confirmation is ON in the Supabase Dashboard.
+            // User must click the link before they can sign in.
+            setAuthView('verify-email');
+          } else {
+            // Email confirmation is OFF (recommended for dev) — user is
+            // already authenticated. Send them to choose Create/Join.
+            setAuthView('onboarding-choice');
+          }
+        }}
+        onGoSignIn={() => setAuthView('signin')}
+        onGoLanding={() => setAuthView('landing')}
+      />
+    );
+  }
+
+  if (authView === 'verify-email') {
+    return (
+      <VerifyEmailPage
+        email={pendingEmail}
+        onGoSignIn={() => setAuthView('signin')}
+        onGoLanding={() => setAuthView('landing')}
+      />
+    );
+  }
+
+  if (authView === 'onboarding-choice') {
+    // Guard: must have a user to show choice page
+    const choiceUser = currentUser ?? storage.getCurrentUser();
+    return (
+      <>
+        <OnboardingChoicePage
+          currentUser={choiceUser}
+          onCreateFamily={() => setIsOnboardingOpen(true)}
+          onJoinFamily={() => setAuthView('join-family')}
+          onSignOut={handleSignOut}
+        />
+        {/* OnboardingWizard must be rendered here — it is not visible on
+            any other auth branch when authView === 'onboarding-choice' */}
+        <OnboardingWizard
+          isOpen={isOnboardingOpen}
+          onClose={() => setIsOnboardingOpen(false)}
+          onComplete={async () => {
+            setIsOnboardingOpen(false);
+            await enterApp(choiceUser);
+          }}
+        />
+      </>
+    );
+  }
+
+  if (authView === 'join-family') {
+    const joinUser = currentUser ?? storage.getCurrentUser();
+    return (
+      <JoinFamilyPage
+        currentUser={joinUser}
+        prefillToken={inviteToken}
+        onSuccess={async () => {
+          // Invitation accepted — re-verify role from DB and enter app
+          await enterApp(joinUser);
+        }}
+        onBack={() => setAuthView('onboarding-choice')}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+
+  if (authView === 'reset-password') {
+    return (
+      <ResetPasswordPage
+        onSuccess={async () => {
+          refreshAll();
+          setAuthView('app');
+        }}
+        onGoSignIn={() => setAuthView('signin')}
+        onGoLanding={() => setAuthView('landing')}
+      />
+    );
+  }
+
+  // ── Guard: must be authenticated ──────────────────────────────────────────
+  if (!currentUser) {
+    setTimeout(() => setAuthView('signin'), 0);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="w-8 h-8 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // AUTHENTICATED APP SHELL
+  // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col font-sans text-stone-900 antialiased overflow-x-hidden">
       <Header
@@ -237,26 +460,28 @@ export default function App() {
         families={families}
         currentUser={currentUser}
         notifications={notifications}
-        currentTab={currentTab}
+        currentTab={resolvedTab}
         onNavigate={setCurrentTab}
         onSwitchFamily={handleSwitchFamily}
         onCreateNewFamily={() => setIsOnboardingOpen(true)}
         onSignOut={handleSignOut}
-        onViewPublicSite={() => setIsPublicView(true)}
+        onViewPublicSite={() => setAuthView('landing')}
         onRefreshNotifications={refreshAll}
         onOpenAssistant={() => setIsAssistantOpen(true)}
       />
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
-          currentTab={currentTab}
+          currentTab={resolvedTab}
+          currentRole={verifiedRole}
           onNavigate={setCurrentTab}
-          onViewPublicSite={() => setIsPublicView(true)}
+          onViewPublicSite={() => setAuthView('landing')}
           unreadCount={notifications.filter(n => !n.is_read).length}
         />
 
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0 relative bg-stone-50">
-          {currentTab === 'dashboard' && (
+          {/* Dashboard */}
+          {resolvedTab === 'dashboard' && isAdmin && (
             <Dashboard
               family={currentFamily}
               people={people}
@@ -269,23 +494,39 @@ export default function App() {
               onSelectPerson={handleSelectPerson}
               onAddRelative={(p) => setAddRelativeState({ isOpen: true, targetPerson: p })}
               onUploadMemory={() => setCurrentTab('memories')}
-              onInviteRelative={() => setCurrentTab('collaboration')}
+              onInviteRelative={() => setCurrentTab('user-management')}
+            />
+          )}
+          {resolvedTab === 'dashboard' && !isAdmin && (
+            <ViewerDashboard
+              family={currentFamily}
+              currentUser={currentUser}
+              people={people}
+              relationships={relationships}
+              memories={memories}
+              events={events}
+              onNavigate={setCurrentTab}
+              onSelectPerson={handleSelectPerson}
             />
           )}
 
-          {currentTab === 'tree' && (
+          {/* Tree */}
+          {resolvedTab === 'tree' && (
             <FamilyTreeCanvas
               people={people}
               relationships={relationships}
               selectedPerson={selectedPerson || undefined}
               onSelectPerson={handleSelectPerson}
-              onAddRelative={(p) => setAddRelativeState({ isOpen: true, targetPerson: p })}
+              onAddRelative={isAdmin ? (p) => setAddRelativeState({ isOpen: true, targetPerson: p }) : undefined}
               onExploreRelationship={handleExploreRelationship}
-              onEditPerson={(p) => setAddRelativeState({ isOpen: true, editPerson: p })}
+              onEditPerson={isAdmin ? (p) => setAddRelativeState({ isOpen: true, editPerson: p }) : undefined}
+              familyId={currentFamily.id}
+              familyName={currentFamily.name}
+              userIsAdmin={isAdmin}
             />
           )}
 
-          {currentTab === 'relationships' && (
+          {resolvedTab === 'relationships' && (
             <RelationshipExplorer
               people={people}
               relationships={relationships}
@@ -296,7 +537,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'memories' && (
+          {resolvedTab === 'memories' && (
             <MemoriesPage
               memories={memories}
               people={people}
@@ -305,7 +546,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'events' && (
+          {resolvedTab === 'events' && (
             <EventsPage
               events={events}
               people={people}
@@ -314,7 +555,16 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'collaboration' && (
+          {/* Admin-only tabs */}
+          {resolvedTab === 'user-management' && isAdmin && (
+            <UserManagementPage
+              family={currentFamily}
+              memberships={memberships}
+              currentUser={currentUser}
+              onRefresh={refreshAll}
+            />
+          )}
+          {resolvedTab === 'collaboration' && isAdmin && (
             <CollaborationPage
               family={currentFamily}
               memberships={memberships}
@@ -323,20 +573,36 @@ export default function App() {
               onRefresh={refreshAll}
             />
           )}
+          {resolvedTab === 'settings' && isAdmin && (
+            <SettingsPage family={currentFamily} onRefresh={refreshAll} />
+          )}
 
-          {currentTab === 'settings' && (
-            <SettingsPage
-              family={currentFamily}
-              onRefresh={refreshAll}
-            />
+          {/* Access-denied fallback */}
+          {!isAdmin && ADMIN_ONLY_TABS.includes(resolvedTab as any) && (
+            <div className="flex flex-col items-center justify-center min-h-64 gap-3 p-8 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center">
+                <span className="text-xl">🔒</span>
+              </div>
+              <p className="text-sm font-semibold text-stone-700">Admin access required</p>
+              <p className="text-xs text-stone-500 max-w-xs">
+                This section is restricted to family administrators.
+              </p>
+              <button
+                onClick={() => setCurrentTab('dashboard')}
+                className="text-xs text-emerald-800 font-semibold hover:underline mt-1"
+              >
+                Return to dashboard
+              </button>
+            </div>
           )}
         </main>
       </div>
 
       <MobileNav
-        currentTab={currentTab}
+        currentTab={resolvedTab}
+        currentRole={verifiedRole}
         onNavigate={setCurrentTab}
-        onViewPublicSite={() => setIsPublicView(true)}
+        onViewPublicSite={() => setAuthView('landing')}
       />
 
       <PersonProfileDrawer
@@ -347,48 +613,42 @@ export default function App() {
         relationships={relationships}
         memories={memories}
         onSelectPerson={handleSelectPerson}
-        onEditPerson={(p) => setAddRelativeState({ isOpen: true, editPerson: p })}
-        onAddRelative={(p) => setAddRelativeState({ isOpen: true, targetPerson: p })}
+        onEditPerson={isAdmin ? (p) => setAddRelativeState({ isOpen: true, editPerson: p }) : undefined}
+        onAddRelative={isAdmin ? (p) => setAddRelativeState({ isOpen: true, targetPerson: p }) : undefined}
         onExploreRelationship={handleExploreRelationship}
-        onDeletePerson={(id) => {
+        onDeletePerson={isAdmin ? (id) => {
           storage.deletePerson(id);
           refreshAll();
           setSelectedPerson(null);
-        }}
-        onDeleteRelationship={(relId) => {
+        } : undefined}
+        onDeleteRelationship={isAdmin ? (relId) => {
           storage.deleteRelationship(relId);
           refreshAll();
-        }}
+        } : undefined}
       />
 
-      <AddRelativeDialog
-        isOpen={addRelativeState.isOpen}
-        targetPerson={addRelativeState.targetPerson}
-        editPerson={addRelativeState.editPerson}
-        people={people}
-        onClose={() => setAddRelativeState({ isOpen: false })}
-        onSaved={(person) => {
-          refreshAll();
-          setSelectedPerson(person);
-        }}
-      />
+      {isAdmin && (
+        <AddRelativeDialog
+          isOpen={addRelativeState.isOpen}
+          targetPerson={addRelativeState.targetPerson}
+          editPerson={addRelativeState.editPerson}
+          people={people}
+          onClose={() => setAddRelativeState({ isOpen: false })}
+          onSaved={(person) => { refreshAll(); setSelectedPerson(person); }}
+        />
+      )}
 
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={(user) => {
-          storage.updateCurrentUser(user);
-          setCurrentUser(user);
-          refreshAll();
-        }}
-        onStartOnboarding={() => setIsOnboardingOpen(true)}
-      />
-
+      {/* OnboardingWizard rendered here for the app shell context (e.g. "Create new family" from header) */}
       <OnboardingWizard
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
-        onComplete={() => {
+        onComplete={async () => {
+          if (currentUser && isSupabaseConfigured) {
+            const dbRole = await getRoleFromDB(currentUser.id);
+            if (dbRole) applyVerifiedRole(dbRole.role, dbRole.familyId);
+          }
           refreshAll();
+          setIsOnboardingOpen(false);
           setCurrentTab('tree');
         }}
       />

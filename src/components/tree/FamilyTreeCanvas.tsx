@@ -3,6 +3,7 @@ import { FamilyPerson, Relationship, TreeViewMode } from '../../types';
 import { computeTreeLayout } from '../../utils/treeLayout';
 import { PersonCard } from './PersonCard';
 import { TreeControls } from './TreeControls';
+import { ImportFamilyTreeModal } from './ImportFamilyTreeModal';
 import { Users, Calendar, MapPin, Heart, Plus, Edit } from 'lucide-react';
 
 interface FamilyTreeCanvasProps {
@@ -10,9 +11,12 @@ interface FamilyTreeCanvasProps {
   relationships: Relationship[];
   selectedPerson?: FamilyPerson;
   onSelectPerson: (person: FamilyPerson) => void;
-  onAddRelative: (targetPerson?: FamilyPerson) => void;
+  onAddRelative?: (targetPerson?: FamilyPerson) => void;
   onExploreRelationship: (person: FamilyPerson) => void;
-  onEditPerson: (person: FamilyPerson) => void;
+  onEditPerson?: (person: FamilyPerson) => void;
+  familyId: string;
+  familyName: string;
+  userIsAdmin?: boolean;
 }
 
 export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
@@ -23,6 +27,9 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   onAddRelative,
   onExploreRelationship,
   onEditPerson,
+  familyId,
+  familyName,
+  userIsAdmin = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +43,9 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const [viewMode, setViewMode] = useState<TreeViewMode>('tree');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Filtered people set based on viewMode
   const activePeople = useMemo(() => {
@@ -277,9 +287,25 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
         }}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onAddNewMember={() => onAddRelative()}
+        onAddNewMember={onAddRelative ? () => onAddRelative() : undefined}
+        onImportFamilyTree={userIsAdmin ? () => setShowImportModal(true) : undefined}
         selectedPerson={selectedPerson}
       />
+
+      {/* Import Family Tree Modal */}
+      {showImportModal && (
+        <ImportFamilyTreeModal
+          familyId={familyId}
+          familyName={familyName}
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={() => {
+            console.log('PDF import completed successfully');
+            setShowImportModal(false);
+            // Trigger data reload if needed
+            // You can add a callback here to refresh the tree
+          }}
+        />
+      )}
 
       {/* Directory List View (when in list mode) */}
       {viewMode === 'list' ? (
@@ -292,6 +318,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                   {people.length} members across {layout.generationLevels.length} generations.
                 </p>
               </div>
+              {onAddRelative && (
               <button
                 onClick={() => onAddRelative()}
                 className="px-3 py-1.5 bg-emerald-800 text-white rounded-lg text-xs font-medium hover:bg-emerald-900 transition-colors flex items-center gap-1.5"
@@ -299,6 +326,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                 <Plus className="w-3.5 h-3.5" />
                 Add Member
               </button>
+              )}
             </div>
 
             {/* Responsive table: full table on md+, card list on mobile */}
@@ -350,8 +378,8 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                           <button onClick={() => onExploreRelationship(person)} className="px-2 py-1 text-emerald-800 hover:bg-emerald-50 rounded text-xs transition-colors">Path</button>
-                          <button onClick={() => onAddRelative(person)} className="px-2 py-1 text-stone-600 hover:bg-stone-100 rounded text-xs transition-colors">+Rel</button>
-                          <button onClick={() => onEditPerson(person)} className="px-2 py-1 text-stone-600 hover:bg-stone-100 rounded text-xs transition-colors">Edit</button>
+                          {onAddRelative && <button onClick={() => onAddRelative(person)} className="px-2 py-1 text-stone-600 hover:bg-stone-100 rounded text-xs transition-colors">+Rel</button>}
+                          {onEditPerson && <button onClick={() => onEditPerson(person)} className="px-2 py-1 text-stone-600 hover:bg-stone-100 rounded text-xs transition-colors">Edit</button>}
                         </div>
                       </td>
                     </tr>
@@ -376,12 +404,16 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                     <p className="text-[10px] text-stone-400">Gen {person.generation_level} · {person.living_status === 'living' ? 'Living' : 'Deceased'}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    {onEditPerson && (
                     <button onClick={() => onEditPerson(person)} className="p-1.5 text-stone-400 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 transition-colors">
                       <Edit className="w-3.5 h-3.5" />
                     </button>
+                    )}
+                    {onAddRelative && (
                     <button onClick={() => onAddRelative(person)} className="p-1.5 text-stone-400 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 transition-colors">
                       <Plus className="w-3.5 h-3.5" />
                     </button>
+                    )}
                   </div>
                 </div>
               ))}
