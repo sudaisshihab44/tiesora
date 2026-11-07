@@ -2,6 +2,10 @@
 -- TIESORA — COMPLETE DATABASE SETUP
 -- Run this entire file in: Supabase Dashboard → SQL Editor
 -- This combines the initial schema + the Admin/Viewer migration
+--
+-- ⚠️  WARNING: This file is NOT idempotent
+-- If you get "policy already exists" errors, use:
+-- APPLY_TO_SUPABASE_IDEMPOTENT.sql instead
 -- ============================================================
 
 -- ==============================================================================
