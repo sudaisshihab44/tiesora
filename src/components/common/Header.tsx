@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  family: Family;
+  family: Family | null;
   families: Family[];
   currentUser: UserProfile;
   notifications: AppNotification[];
@@ -50,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-  const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
+  const currentRole = family ? storage.getUserRoleInFamily(currentUser.id, family.id) : 'viewer';
   const isAdminUser = currentRole === 'admin';
 
   const handleMarkAllRead = () => {
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-stone-900 block truncate max-w-[140px] sm:max-w-[200px]">
-                {family.name}
+                {family?.name || 'No Family'}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
@@ -102,13 +102,13 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsFamilyMenuOpen(false);
                     }}
                     className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors ${
-                      f.id === family.id
+                      f.id === family?.id
                         ? 'bg-emerald-50 text-emerald-950 font-semibold'
                         : 'hover:bg-stone-50 text-stone-700'
                     }`}
                   >
                     <span className="truncate">{f.name}</span>
-                    {f.id === family.id && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
+                    {f.id === family?.id && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
                   </button>
                 ))}
               </div>

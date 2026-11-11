@@ -43,6 +43,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
 
   const currentUser = storage.getCurrentUser();
+  
+  if (!currentUser) {
+    return <div className="p-6 text-center text-stone-500">Please sign in to access settings.</div>;
+  }
 
   const handleSaveFamily = (e: React.FormEvent) => {
     e.preventDefault();

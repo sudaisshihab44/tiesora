@@ -35,6 +35,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({
 
     const family = storage.getCurrentFamily();
     const user = storage.getCurrentUser();
+    
+    if (!family || !user) {
+      setError('Unable to generate invitation. Please refresh and try again.');
+      return;
+    }
 
     // Generate a cryptographically reasonable token
     const token = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 14)}`;
@@ -51,7 +56,10 @@ export const InviteModal: React.FC<InviteModalProps> = ({
       created_by: user.id,
     });
 
-    const link = `${window.location.origin}/#invite=${token}`;
+    // Use production URL from environment variable, fallback to current origin
+    const appOrigin = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '')
+      || window.location.origin;
+    const link = `${appOrigin}/#invite=${token}`;
     setGeneratedInviteLink(link);
 
     // Also add a membership record so the invited person appears in the members list

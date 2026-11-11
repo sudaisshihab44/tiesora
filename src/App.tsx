@@ -38,14 +38,15 @@ import { UserManagementPage }   from './components/admin/UserManagementPage';
 import { FamilyAssistantModal } from './components/ai/FamilyAssistantModal';
 
 // Auth & onboarding pages
-import { LandingPage }          from './components/landing/LandingPage';
-import { SignInPage }           from './components/auth/SignInPage';
-import { SignUpPage }           from './components/auth/SignUpPage';
-import { VerifyEmailPage }      from './components/auth/VerifyEmailPage';
-import { ResetPasswordPage }    from './components/auth/ResetPasswordPage';
-import { OnboardingChoicePage } from './components/auth/OnboardingChoicePage';
-import { OnboardingWizard }     from './components/auth/OnboardingWizard';
-import { JoinFamilyPage }       from './components/auth/JoinFamilyPage';
+import { LandingPage }           from './components/landing/LandingPage';
+import { SignInPage }            from './components/auth/SignInPage';
+import { SignUpPage }            from './components/auth/SignUpPage';
+import { VerifyEmailPage }       from './components/auth/VerifyEmailPage';
+import { ResetPasswordPage }     from './components/auth/ResetPasswordPage';
+import { OnboardingChoicePage }  from './components/auth/OnboardingChoicePage';
+import { OnboardingWizard }      from './components/auth/OnboardingWizard';
+import { JoinFamilyPage }        from './components/auth/JoinFamilyPage';
+import { AcceptInvitationPage }  from './components/auth/AcceptInvitationPage';
 
 // ── Admin-only tabs ────────────────────────────────────────────────────────────
 const ADMIN_ONLY_TABS = ['user-management', 'collaboration', 'settings'] as const;
@@ -85,7 +86,7 @@ export default function App() {
 
   // ── Data state ────────────────────────────────────────────────────────────
   const [families,       setFamilies]       = useState<Family[]>([]);
-  const [currentFamily,  setCurrentFamily]  = useState<Family>(storage.getCurrentFamily());
+  const [currentFamily,  setCurrentFamily]  = useState<Family | null>(storage.getCurrentFamily());
   const [people,         setPeople]         = useState<FamilyPerson[]>([]);
   const [relationships,  setRelationships]  = useState<Relationship[]>([]);
   const [memories,       setMemories]       = useState<Memory[]>([]);
@@ -102,14 +103,22 @@ export default function App() {
     setCurrentUser(user);
     setFamilies(fams);
     setCurrentFamily(currFam);
-    setPeople(storage.getPeople(currFam.id));
-    setRelationships(storage.getRelationships(currFam.id));
-    setMemories(storage.getMemories(currFam.id));
-    setEvents(storage.getEvents(currFam.id));
-    setMemberships(storage.getMemberships(currFam.id));
-    setChangeRequests(storage.getChangeRequests(currFam.id));
-    setNotifications(storage.getNotifications(user.id));
-    setAuditLogs(storage.getAuditLogs(currFam.id));
+    
+    // Only load family-specific data if we have a family
+    if (currFam) {
+      setPeople(storage.getPeople(currFam.id));
+      setRelationships(storage.getRelationships(currFam.id));
+      setMemories(storage.getMemories(currFam.id));
+      setEvents(storage.getEvents(currFam.id));
+      setMemberships(storage.getMemberships(currFam.id));
+      setChangeRequests(storage.getChangeRequests(currFam.id));
+      setAuditLogs(storage.getAuditLogs(currFam.id));
+    }
+    
+    // Load user-specific data if we have a user
+    if (user) {
+      setNotifications(storage.getNotifications(user.id));
+    }
   }, []);
 
   const applyVerifiedRole = useCallback((role: Role, familyId: string) => {
@@ -120,18 +129,40 @@ export default function App() {
 
   // ── Re-verify role from DB and enter app ─────────────────────────────────
   const enterApp = useCallback(async (user: UserProfile) => {
-    storage.updateCurrentUser(user);
+    storage.updateCurrentUser({ 
+      id: user.id, 
+      email: user.email, 
+      display_name: user.display_name,
+      avatar_path: user.avatar_path,
+      preferred_language: user.preferred_language,
+      created_at: user.created_at
+    });
     setCurrentUser(user);
+    
     const dbRole = await getRoleFromDB(user.id);
     if (dbRole) {
       applyVerifiedRole(dbRole.role, dbRole.familyId);
+      refreshAll();
+      setAuthView('app');
+      setCurrentTab('dashboard');
     } else {
-      const fam = storage.getCurrentFamily();
-      applyVerifiedRole('viewer', fam.id);
+      // CRITICAL FIX: Do NOT fallback to demo family in production
+      // User has no family membership - send to onboarding
+      if (isSupabaseConfigured) {
+        console.log('[enterApp] No family membership found - sending to onboarding');
+        setAuthView('onboarding-choice');
+      } else {
+        // Demo mode only - use sample family
+        const fam = storage.getCurrentFamily();
+        if (fam) {
+          applyVerifiedRole('viewer', fam.id);
+          refreshAll();
+          setAuthView('app');
+        } else {
+          setAuthView('onboarding-choice');
+        }
+      }
     }
-    refreshAll();
-    setAuthView('app');
-    setCurrentTab('dashboard');
   }, [applyVerifiedRole, refreshAll]);
 
   // ── Boot: check URL hash then existing session ────────────────────────────
@@ -158,8 +189,10 @@ export default function App() {
     if (inviteMatch) {
       window.history.replaceState(null, '', window.location.pathname);
       setInviteToken(inviteMatch[1]);
-      // If already signed in, go to join-family. Otherwise sign up first.
-      // checkSession() below will handle the signed-in case.
+      // Route to dedicated accept-invitation page
+      setAuthView('accept-invitation');
+      setAuthChecked(true);
+      return;
     }
 
     async function checkSession() {
@@ -175,23 +208,11 @@ export default function App() {
         if (!cancelled) {
           if (dbRole) {
             applyVerifiedRole(dbRole.role, dbRole.familyId);
-            // If there's a pending invite, let them join a second family
-            if (inviteMatch) {
-              setInviteToken(inviteMatch[1]);
-              setAuthView('join-family');
-            } else {
-              refreshAll();
-              setAuthView('app');
-            }
+            refreshAll();
+            setAuthView('app');
           } else {
             // Authenticated but no family yet — send to onboarding choice
-            // Handle pending invite token if present
-            if (inviteMatch) {
-              setInviteToken(inviteMatch[1]);
-              setAuthView('join-family');
-            } else {
-              setAuthView('onboarding-choice');
-            }
+            setAuthView('onboarding-choice');
           }
         }
       }
@@ -310,9 +331,16 @@ export default function App() {
           refreshAll();
           const fam  = storage.getCurrentFamily();
           const user = storage.getCurrentUser();
-          const role = normalizeRole(storage.getUserRoleInFamily(user.id, fam.id));
-          applyVerifiedRole(role, fam.id);
-          setAuthView('app');
+          
+          // Demo mode - should always have user and family
+          if (user && fam) {
+            const role = normalizeRole(storage.getUserRoleInFamily(user.id, fam.id));
+            applyVerifiedRole(role, fam.id);
+            setAuthView('app');
+          } else {
+            console.error('Demo mode failed to load user/family data');
+            setAuthView('signup');
+          }
         }}
         onSignIn={() => setAuthView('signin')}
         onSignUp={() => setAuthView('signup')}
@@ -386,9 +414,32 @@ export default function App() {
     );
   }
 
+  if (authView === 'accept-invitation' && inviteToken) {
+    return (
+      <AcceptInvitationPage
+        token={inviteToken}
+        onSuccess={async () => {
+          // Invitation accepted — re-verify role from DB and enter app
+          const user = await getSessionUser();
+          if (user) {
+            await enterApp(user);
+          } else {
+            setAuthView('signin');
+          }
+        }}
+        onGoLanding={() => setAuthView('landing')}
+      />
+    );
+  }
+
   if (authView === 'onboarding-choice') {
     // Guard: must have a user to show choice page
     const choiceUser = currentUser ?? storage.getCurrentUser();
+    if (!choiceUser) {
+      setTimeout(() => setAuthView('signin'), 0);
+      return null;
+    }
+    
     return (
       <>
         <OnboardingChoicePage
@@ -413,6 +464,11 @@ export default function App() {
 
   if (authView === 'join-family') {
     const joinUser = currentUser ?? storage.getCurrentUser();
+    if (!joinUser) {
+      setTimeout(() => setAuthView('signin'), 0);
+      return null;
+    }
+    
     return (
       <JoinFamilyPage
         currentUser={joinUser}
@@ -443,6 +499,17 @@ export default function App() {
   // ── Guard: must be authenticated ──────────────────────────────────────────
   if (!currentUser) {
     setTimeout(() => setAuthView('signin'), 0);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="w-8 h-8 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Guard: must have a family (production mode only) ──────────────────────
+  if (!currentFamily && storage.isProductionMode()) {
+    // User is authenticated but not in a family - send to onboarding
+    setTimeout(() => setAuthView('onboarding-choice'), 0);
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <div className="w-8 h-8 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
@@ -481,7 +548,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0 relative bg-stone-50">
           {/* Dashboard */}
-          {resolvedTab === 'dashboard' && isAdmin && (
+          {resolvedTab === 'dashboard' && isAdmin && currentFamily && (
             <Dashboard
               family={currentFamily}
               people={people}
@@ -497,7 +564,7 @@ export default function App() {
               onInviteRelative={() => setCurrentTab('user-management')}
             />
           )}
-          {resolvedTab === 'dashboard' && !isAdmin && (
+          {resolvedTab === 'dashboard' && !isAdmin && currentFamily && (
             <ViewerDashboard
               family={currentFamily}
               currentUser={currentUser}
@@ -511,7 +578,7 @@ export default function App() {
           )}
 
           {/* Tree */}
-          {resolvedTab === 'tree' && (
+          {resolvedTab === 'tree' && currentFamily && (
             <FamilyTreeCanvas
               people={people}
               relationships={relationships}
@@ -556,7 +623,7 @@ export default function App() {
           )}
 
           {/* Admin-only tabs */}
-          {resolvedTab === 'user-management' && isAdmin && (
+          {resolvedTab === 'user-management' && isAdmin && currentFamily && (
             <UserManagementPage
               family={currentFamily}
               memberships={memberships}
@@ -564,7 +631,7 @@ export default function App() {
               onRefresh={refreshAll}
             />
           )}
-          {resolvedTab === 'collaboration' && isAdmin && (
+          {resolvedTab === 'collaboration' && isAdmin && currentFamily && (
             <CollaborationPage
               family={currentFamily}
               memberships={memberships}
@@ -573,7 +640,7 @@ export default function App() {
               onRefresh={refreshAll}
             />
           )}
-          {resolvedTab === 'settings' && isAdmin && (
+          {resolvedTab === 'settings' && isAdmin && currentFamily && (
             <SettingsPage family={currentFamily} onRefresh={refreshAll} />
           )}
 
@@ -660,7 +727,7 @@ export default function App() {
         relationships={relationships}
         memories={memories}
         events={events}
-        family={currentFamily}
+        family={currentFamily!}
         onSelectPerson={handleSelectPerson}
         onExploreRelationship={handleExploreRelationship}
         onNavigate={setCurrentTab}

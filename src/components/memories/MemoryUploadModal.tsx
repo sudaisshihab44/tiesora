@@ -89,6 +89,11 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
 
     const family = storage.getCurrentFamily();
     const currentUser = storage.getCurrentUser();
+    
+    if (!family || !currentUser) {
+      setError('Unable to add memory. Please refresh and try again.');
+      return;
+    }
 
     const newMem = storage.addMemory({
       family_id: family.id,

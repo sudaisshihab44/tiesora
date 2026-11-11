@@ -52,6 +52,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   if (!isOpen) return null;
 
   const currentUser = storage.getCurrentUser();
+  if (!currentUser) {
+    return (
+      <div className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl p-6 max-w-md text-center">
+          <p className="text-stone-700">Please sign in to continue.</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();

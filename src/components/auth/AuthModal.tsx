@@ -83,7 +83,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   ];
 
   const handleDemoLogin = (demo: (typeof demoUsers)[0]) => {
-    const updated = storage.updateCurrentUser({ display_name: demo.name, email: demo.email });
+    const currentUser = storage.getCurrentUser();
+    const userId = currentUser?.id || `usr_demo_${Date.now()}`;
+    const updated = storage.updateCurrentUser({ 
+      id: userId,
+      display_name: demo.name, 
+      email: demo.email 
+    });
     onSuccess(updated);
     onClose();
   };

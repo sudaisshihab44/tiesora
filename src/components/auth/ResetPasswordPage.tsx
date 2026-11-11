@@ -38,8 +38,24 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    
+    // ENFORCED password requirements (same as signup)
+    if (password.length < 8) { 
+      setError('Password must be at least 8 characters.'); 
+      return; 
+    }
+    if (!hasUppercase) {
+      setError('Password must include at least one uppercase letter.');
+      return;
+    }
+    if (!hasNumber) {
+      setError('Password must include at least one number.');
+      return;
+    }
+    if (password !== confirm) { 
+      setError('Passwords do not match.'); 
+      return; 
+    }
 
     setLoading(true);
     try {
@@ -160,8 +176,8 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
 
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
+                    disabled={loading || !hasMinLength || !hasUppercase || !hasNumber || password !== confirm}
+                    className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
                   >
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                     {loading ? 'Updating…' : 'Update Password'}

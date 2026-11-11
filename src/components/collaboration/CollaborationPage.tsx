@@ -42,6 +42,10 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [privacySaved, setPrivacySaved] = useState(false);
 
   const currentUser = storage.getCurrentUser();
+  if (!currentUser) {
+    return <div className="p-6 text-center text-stone-500">Please sign in to access collaboration settings.</div>;
+  }
+  
   const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
   const canManage = currentRole === 'admin';
   const [privacySettings, setPrivacySettings] = useState(family.privacy_settings || {

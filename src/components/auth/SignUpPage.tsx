@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from '../../services/supabase';
 import { UserProfile } from '../../types';
 import { TiesoraLogo } from '../common/TiesoraLogo';
 import {
-  User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Check,
+  User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Check, CheckSquare, Square,
 } from 'lucide-react';
 
 interface SignUpPageProps {
@@ -27,6 +27,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
   const [confirm, setConfirm]     = useState('');
   const [showPassword, setShowPw] = useState(false);
   const [showConfirm, setShowCfm] = useState(false);
+  const [termsAccepted, setTermsAccepted]     = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -34,13 +36,14 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
   // re-render and can never become stale across closures.
   const inFlight = useRef(false);
 
-  // Password strength
+  // Password strength - ENFORCED requirements
   const hasMin  = password.length >= 8;
   const hasCap  = /[A-Z]/.test(password);
   const hasNum  = /[0-9]/.test(password);
+  const passwordValid = hasMin && hasCap && hasNum;
 
   const StrengthRow = ({ met, label }: { met: boolean; label: string }) => (
-    <span className={`flex items-center gap-1 ${met ? 'text-emerald-700' : 'text-stone-400'}`}>
+    <span className={`flex items-center gap-1 text-xs ${met ? 'text-emerald-700 font-medium' : 'text-stone-400'}`}>
       <Check className={`w-3 h-3 ${met ? 'opacity-100' : 'opacity-30'}`} />
       {label}
     </span>
@@ -61,12 +64,33 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
       setError('Please enter a valid email address.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    
+    // ENFORCED password requirements
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
+    if (!hasCap) {
+      setError('Password must include at least one uppercase letter.');
+      return;
+    }
+    if (!hasNum) {
+      setError('Password must include at least one number.');
+      return;
+    }
+    
     if (password !== confirm) {
       setError('Passwords do not match.');
+      return;
+    }
+    
+    // Terms & Privacy validation
+    if (!termsAccepted) {
+      setError('Please accept the Terms of Service to continue.');
+      return;
+    }
+    if (!privacyAccepted) {
+      setError('Please accept the Privacy Policy to continue.');
       return;
     }
 
@@ -75,24 +99,15 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
     setLoading(true);
     try {
       // signUp() always sends trimEmail — the trimmed, validated value above.
-      // intendedRole is omitted; the onboarding choice page sets it afterward.
+      // Role is NEVER specified by the user - it comes from invitation or defaults to viewer
       const result = await signUp(trimEmail, password, trimName);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      // Email confirmation is only required when:
-      //   • Supabase is configured AND
-      //   • "Confirm email" is ENABLED in Supabase Dashboard
-      //     (Authentication → Email → "Enable email confirmations")
-      //
-      // For development: disable confirmation in the Supabase Dashboard so
-      // users sign in immediately without clicking an email link.
-      //
-      // We detect whether confirmation is required by checking if Supabase
-      // returned a session. If data.session is null, confirmation is needed.
-      // signUp() in auth.ts returns the user regardless; we rely on the
-      // isSupabaseConfigured flag plus the presence of a session to decide.
+      
+      // Email confirmation is required when Supabase is configured
+      // User will need to click verification link before they can sign in
       const needsConfirmation = isSupabaseConfigured;
       onSuccess(result.user, needsConfirmation);
     } finally {
@@ -123,7 +138,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
             <div className="px-6 py-5 border-b border-stone-100 bg-stone-50/60">
               <h1 className="text-lg font-bold text-stone-900">Create your account</h1>
               <p className="text-xs text-stone-500 mt-0.5">
-                Free forever. No credit card required.
+                Start building your family tree. Free forever.
               </p>
             </div>
 
@@ -245,10 +260,65 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
                   )}
                 </div>
 
+                {/* Terms & Privacy Acceptance */}
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer group">
+                    <button
+                      type="button"
+                      onClick={() => setTermsAccepted(!termsAccepted)}
+                      className="mt-0.5 shrink-0"
+                    >
+                      {termsAccepted ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-700" />
+                      ) : (
+                        <Square className="w-4 h-4 text-stone-400 group-hover:text-stone-600" />
+                      )}
+                    </button>
+                    <span className="text-xs text-stone-600 leading-relaxed">
+                      I agree to the{' '}
+                      <a 
+                        href="/terms" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-semibold text-emerald-800 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms of Service
+                      </a>
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer group">
+                    <button
+                      type="button"
+                      onClick={() => setPrivacyAccepted(!privacyAccepted)}
+                      className="mt-0.5 shrink-0"
+                    >
+                      {privacyAccepted ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-700" />
+                      ) : (
+                        <Square className="w-4 h-4 text-stone-400 group-hover:text-stone-600" />
+                      )}
+                    </button>
+                    <span className="text-xs text-stone-600 leading-relaxed">
+                      I agree to the{' '}
+                      <a 
+                        href="/privacy" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-semibold text-emerald-800 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Privacy Policy
+                      </a>
+                    </span>
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 mt-1"
+                  disabled={loading || !passwordValid || !termsAccepted || !privacyAccepted}
+                  className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 mt-1"
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</>
@@ -256,7 +326,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
                 </button>
 
                 <p className="text-[11px] text-stone-400 text-center leading-relaxed">
-                  By creating an account you agree to keep your family's data private and secure.
+                  Your account will be created as a Viewer. Family administrators can upgrade your access if needed.
                 </p>
               </form>
 

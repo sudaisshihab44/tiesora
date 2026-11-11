@@ -265,6 +265,7 @@ export type AuthView =
   | 'signin'             // sign-in page
   | 'signup'             // sign-up / create account page
   | 'verify-email'       // post-signup "check your inbox" screen (email confirmation ON)
+  | 'accept-invitation'  // dedicated invitation acceptance page with signup/signin
   | 'onboarding-choice'  // after signup: "Create a Family" vs "Join a Family"
   | 'join-family'        // invitation code / link entry for new viewers
   | 'reset-password'     // password-reset form (token in URL hash)

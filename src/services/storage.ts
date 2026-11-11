@@ -45,7 +45,28 @@ class TiesoraStorage {
   private listeners: Set<() => void> = new Set();
 
   constructor() {
-    this.initializeIfEmpty();
+    // Only initialize demo data if Supabase is NOT configured
+    if (!this.isProductionMode()) {
+      this.initializeIfEmpty();
+    }
+  }
+
+  /**
+   * Returns true when running with real Supabase configuration
+   */
+  public isProductionMode(): boolean {
+    // Check if we're in a browser environment with Supabase configured
+    if (typeof window === 'undefined') return false;
+    
+    try {
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      return Boolean(url && key && 
+        url !== 'https://your-project-ref.supabase.co' &&
+        key !== 'your-anon-key-here');
+    } catch {
+      return false;
+    }
   }
 
   public subscribe(callback: () => void): () => void {
@@ -61,6 +82,20 @@ class TiesoraStorage {
         console.error('Error notifying storage listener:', err);
       }
     });
+  }
+
+  /**
+   * Clears ALL localStorage data for the current session
+   * Called on signout to prevent account contamination
+   */
+  public clearAllSessionData() {
+    if (typeof window === 'undefined') return;
+    
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    this.notify();
   }
 
   public resetToSampleData() {
@@ -81,6 +116,13 @@ class TiesoraStorage {
 
   private initializeIfEmpty(force = false) {
     if (typeof window === 'undefined') return;
+
+    // CRITICAL: Only initialize demo data if we're NOT in production mode
+    // In production, localStorage should ONLY contain user-specific data
+    if (this.isProductionMode() && !force) {
+      console.log('[Storage] Production mode detected - skipping demo data initialization');
+      return;
+    }
 
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || force) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(CURRENT_USER));
@@ -121,17 +163,41 @@ class TiesoraStorage {
   }
 
   // --- Auth & User Profile ---
-  public getCurrentUser(): UserProfile {
+  public getCurrentUser(): UserProfile | null {
+    if (typeof window === 'undefined') return null;
+    
     try {
       const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-      return data ? JSON.parse(data) : CURRENT_USER;
+      if (!data) {
+        // In production mode, return null instead of demo user
+        if (this.isProductionMode()) {
+          return null;
+        }
+        return CURRENT_USER;
+      }
+      return JSON.parse(data);
     } catch {
+      // In production mode, return null on error
+      if (this.isProductionMode()) {
+        return null;
+      }
       return CURRENT_USER;
     }
   }
 
-  public updateCurrentUser(updates: Partial<UserProfile>): UserProfile {
-    const user = { ...this.getCurrentUser(), ...updates };
+  public updateCurrentUser(updates: Partial<UserProfile> & { id: string; email: string; display_name: string }): UserProfile {
+    const existing = this.getCurrentUser();
+    const user: UserProfile = existing 
+      ? { ...existing, ...updates }
+      : {
+          id: updates.id,
+          email: updates.email,
+          display_name: updates.display_name,
+          avatar_path: updates.avatar_path,
+          preferred_language: updates.preferred_language || 'en',
+          created_at: updates.created_at || new Date().toISOString(),
+        };
+    
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
     this.notify();
     return user;
@@ -141,14 +207,32 @@ class TiesoraStorage {
   public getFamilies(): Family[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.FAMILIES);
-      return data ? JSON.parse(data) : [SAMPLE_FAMILY];
+      if (!data) {
+        // In production mode, return empty array instead of demo family
+        if (this.isProductionMode()) {
+          return [];
+        }
+        return [SAMPLE_FAMILY];
+      }
+      return JSON.parse(data);
     } catch {
+      // In production mode, return empty array on error
+      if (this.isProductionMode()) {
+        return [];
+      }
       return [SAMPLE_FAMILY];
     }
   }
 
-  public getCurrentFamilyId(): string {
-    return localStorage.getItem(STORAGE_KEYS.CURRENT_FAMILY_ID) || SAMPLE_FAMILY.id;
+  public getCurrentFamilyId(): string | null {
+    const id = localStorage.getItem(STORAGE_KEYS.CURRENT_FAMILY_ID);
+    if (id) return id;
+    
+    // In production mode, return null instead of demo family ID
+    if (this.isProductionMode()) {
+      return null;
+    }
+    return SAMPLE_FAMILY.id;
   }
 
   public setCurrentFamilyId(id: string) {
@@ -156,10 +240,29 @@ class TiesoraStorage {
     this.notify();
   }
 
-  public getCurrentFamily(): Family {
+  public getCurrentFamily(): Family | null {
     const families = this.getFamilies();
     const currentId = this.getCurrentFamilyId();
-    return families.find(f => f.id === currentId) || families[0] || SAMPLE_FAMILY;
+    
+    if (!currentId) {
+      // In production mode, return null instead of demo family
+      if (this.isProductionMode()) {
+        return null;
+      }
+      return SAMPLE_FAMILY;
+    }
+    
+    const found = families.find(f => f.id === currentId);
+    if (found) return found;
+    
+    // Fallback to first family if current ID not found
+    if (families.length > 0) return families[0];
+    
+    // In production mode, return null instead of demo family
+    if (this.isProductionMode()) {
+      return null;
+    }
+    return SAMPLE_FAMILY;
   }
 
   public createFamily(family: Omit<Family, 'id' | 'created_at' | 'updated_at'>, _forceId?: string): Family {
@@ -658,6 +761,89 @@ class TiesoraStorage {
 
     this.notify();
     return { success: true, familyId: inv.family_id, role: inv.role };
+  }
+
+  public resendInvitation(membershipId: string): string | null {
+    // Find the membership record
+    const memberships = this.getMemberships();
+    const membership = memberships.find(m => m.id === membershipId);
+    
+    if (!membership || membership.status !== 'invited') {
+      return null;
+    }
+
+    // Find the invitation by email
+    const invitations = this.getInvitations();
+    const invitation = invitations.find(
+      inv => inv.email.toLowerCase() === membership.user_email.toLowerCase() 
+          && inv.family_id === membership.family_id
+          && !inv.accepted_at
+          && !inv.revoked_at
+    );
+
+    if (!invitation) {
+      return null;
+    }
+
+    // Check if expired and regenerate if needed
+    const isExpired = new Date(invitation.expires_at) < new Date();
+    if (isExpired) {
+      // Generate new token and extend expiry
+      const newToken = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 14)}`;
+      const newExpiry = new Date();
+      newExpiry.setDate(newExpiry.getDate() + 7);
+
+      const data = localStorage.getItem(STORAGE_KEYS.INVITATIONS);
+      const all: Invitation[] = data ? JSON.parse(data) : [];
+      const idx = all.findIndex(i => i.id === invitation.id);
+      
+      if (idx >= 0) {
+        all[idx].token = newToken;
+        all[idx].expires_at = newExpiry.toISOString();
+        localStorage.setItem(STORAGE_KEYS.INVITATIONS, JSON.stringify(all));
+      }
+
+      const appOrigin = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '')
+        || window.location.origin;
+      return `${appOrigin}/#invite=${newToken}`;
+    }
+
+    // Return existing valid invitation link
+    const appOrigin = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '')
+      || window.location.origin;
+    return `${appOrigin}/#invite=${invitation.token}`;
+  }
+
+  public revokeInvitation(invitationId: string): boolean {
+    const data = localStorage.getItem(STORAGE_KEYS.INVITATIONS);
+    const all: Invitation[] = data ? JSON.parse(data) : [];
+    const idx = all.findIndex(i => i.id === invitationId);
+    
+    if (idx >= 0) {
+      all[idx].revoked_at = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.INVITATIONS, JSON.stringify(all));
+      this.notify();
+      return true;
+    }
+    
+    return false;
+  }
+
+  public getInvitationByMembership(membershipId: string): Invitation | null {
+    const memberships = this.getMemberships();
+    const membership = memberships.find(m => m.id === membershipId);
+    
+    if (!membership || membership.status !== 'invited') {
+      return null;
+    }
+
+    const invitations = this.getInvitations();
+    return invitations.find(
+      inv => inv.email.toLowerCase() === membership.user_email.toLowerCase() 
+          && inv.family_id === membership.family_id
+          && !inv.accepted_at
+          && !inv.revoked_at
+    ) || null;
   }
 
   // --- Change Requests (Collaboration approval workflow) ---

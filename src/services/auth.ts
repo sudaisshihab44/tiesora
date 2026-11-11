@@ -23,19 +23,19 @@ export type AuthResult =
  * Creates a Supabase Auth account for the given email.
  *
  * Security notes:
- *  - The `intendedRole` parameter is stored ONLY in Supabase user metadata
- *    so it survives the email-confirmation redirect.  It is used as a UI hint
- *    to decide which onboarding path to show — it is NEVER used as
- *    authorisation.  The actual role is always written by a SECURITY DEFINER
- *    database function or an RLS-controlled insert, not by the client.
+ *  - New users are ALWAYS created as viewers by default
+ *  - Admin access can ONLY be granted through:
+ *    1. Creating a family (automatic admin of that family)
+ *    2. Receiving an admin invitation from an existing admin
+ *  - The actual role is always written by a SECURITY DEFINER database function
+ *    or an RLS-controlled insert, never by the client
  *  - We always call `supabase.auth.signUp()` with the trimmed email the user
- *    typed — never with a hardcoded or fallback address.
+ *    typed — never with a hardcoded or fallback address
  */
 export async function signUp(
   email: string,
   password: string,
   displayName: string,
-  intendedRole: 'admin' | 'viewer' = 'viewer',
 ): Promise<AuthResult> {
   // Defensive: trim and validate here so no caller can accidentally pass
   // a stale or whitespace-padded address.
@@ -55,8 +55,7 @@ export async function signUp(
     password,
     options: {
       data: {
-        display_name:  displayName,
-        intended_role: intendedRole,  // persisted through email confirmation
+        display_name: displayName,
       },
     },
   });
@@ -65,10 +64,13 @@ export async function signUp(
   if (!data.user) return { ok: false, error: 'Sign-up failed — no user returned.' };
 
   // Upsert profile row (trigger handles it, but we do it explicitly for safety)
+  // Store terms acceptance timestamp
   await supabase.from('profiles').upsert({
-    id:           data.user.id,
-    email:        data.user.email ?? cleanEmail,
-    display_name: displayName,
+    id:                  data.user.id,
+    email:               data.user.email ?? cleanEmail,
+    display_name:        displayName,
+    terms_accepted_at:   new Date().toISOString(),
+    privacy_accepted_at: new Date().toISOString(),
   });
 
   const profile = await fetchProfile(data.user.id);
@@ -124,7 +126,12 @@ export async function signOut(): Promise<void> {
   if (isSupabaseConfigured && supabase) {
     await supabase.auth.signOut();
   }
-  // In demo mode, sign-out just returns to landing — App.tsx handles the view state.
+  
+  // CRITICAL: Clear ALL localStorage to prevent account contamination
+  // This prevents new logins from inheriting the previous user's family/data
+  storage.clearAllSessionData();
+  
+  // In demo mode, sign-out returns to landing — App.tsx handles the view state.
 }
 
 // ─── Password Reset ───────────────────────────────────────────────────────────
@@ -155,16 +162,12 @@ export async function updatePassword(newPassword: string): Promise<{ ok: boolean
 
 // ─── Get intended role from session metadata (UI hint only) ──────────────────
 /**
- * Reads the `intended_role` stored in the user's JWT metadata at signup.
- * Used ONLY as a UI routing hint — never as authorisation.
- * Returns 'viewer' as the safe default if the field is missing.
+ * DEPRECATED: Role is now ALWAYS determined from database membership
+ * Returns 'viewer' as default for backward compatibility
  */
 export async function getIntendedRoleFromSession(): Promise<'admin' | 'viewer'> {
   if (!isSupabaseConfigured || !supabase) return 'admin'; // demo: always admin
-  const { data } = await supabase.auth.getUser();
-  const meta = data?.user?.user_metadata;
-  if (meta?.intended_role === 'admin') return 'admin';
-  return 'viewer';
+  return 'viewer'; // New users are viewers until invited to admin role
 }
 
 // ─── Get current session user (for app boot) ─────────────────────────────────
@@ -439,6 +442,30 @@ export async function acceptInvitation(
   return { ok: true, familyId: row?.family_id };
 }
 
+// ─── Revoke invitation (admin only) ──────────────────────────────────────────
+/**
+ * Marks an invitation as revoked so it can no longer be accepted.
+ * Only the admin who created it or any admin of the family can revoke.
+ */
+export async function revokeInvitation(
+  invitationId: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    // Demo mode: use localStorage
+    const success = storage.revokeInvitation(invitationId);
+    if (!success) return { ok: false, error: 'Invitation not found.' };
+    return { ok: true };
+  }
+
+  const { error } = await supabase
+    .from('invitations')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', invitationId);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 // ─── Internal: fetch profile row ─────────────────────────────────────────────
 async function fetchProfile(userId: string): Promise<UserProfile> {
   if (!supabase) return storage.getCurrentUser();
@@ -463,4 +490,202 @@ async function fetchProfile(userId: string): Promise<UserProfile> {
   // Keep localStorage in sync
   storage.updateCurrentUser(profile);
   return profile;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// READABLE INVITATION CODE FUNCTIONS (NEW)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create invitation with human-readable code (TIESORA-XXXXXX format)
+ * 
+ * @param familyId - Family to invite to
+ * @param email - Invitee email
+ * @param role - 'admin' or 'viewer'
+ * @param expiresInDays - Days until expiry (default 7)
+ * @returns invitation_id, token (URL), invitation_code (readable), link_fragment
+ */
+export async function createInvitationWithCode(
+  familyId: string,
+  email: string,
+  role: 'admin' | 'viewer',
+  expiresInDays: number = 7,
+): Promise<{
+  ok: boolean;
+  invitation_id?: string;
+  token?: string;
+  invitation_code?: string;
+  link_fragment?: string;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured || !supabase) {
+    // Demo mode — generate client-side code
+    const code = `TIESORA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const token = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 14)}`;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+    const user = storage.getCurrentUser();
+    
+    storage.addInvitation({
+      family_id: familyId,
+      email,
+      role,
+      token,
+      expires_at: expiresAt.toISOString(),
+      created_by: user.id,
+    });
+    
+    return { 
+      ok: true, 
+      invitation_id: `demo-${Date.now()}`,
+      token, 
+      invitation_code: code,
+      link_fragment: `#invite=${token}`
+    };
+  }
+
+  const { data, error } = await supabase.rpc('create_invitation_with_code', {
+    p_family_id:       familyId,
+    p_email:           email,
+    p_role:            role,
+    p_expires_in_days: expiresInDays,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  // RPC returns TABLE — PostgREST returns an array
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.invitation_code) {
+    return { ok: false, error: 'Invitation created but code was not returned.' };
+  }
+
+  return { 
+    ok: true, 
+    invitation_id: row.invitation_id,
+    token: row.token,
+    invitation_code: row.invitation_code,
+    link_fragment: row.link_fragment
+  };
+}
+
+/**
+ * Validate invitation using readable code (TIESORA-XXXXXX)
+ * 
+ * @param code - Human-readable invitation code
+ * @returns family details if valid
+ */
+export async function validateInvitationByCode(code: string): Promise<{
+  ok: boolean;
+  familyId?: string;
+  familyName?: string;
+  role?: string;
+  expiresAt?: string;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured || !supabase) {
+    // Demo mode: validate from localStorage
+    const normalizedCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const inv = storage.validateInvitation(normalizedCode);
+    if (!inv) return { ok: false, error: 'Invalid or expired invitation.' };
+    const fam = storage.getFamilies().find(f => f.id === inv.family_id);
+    return { 
+      ok: true, 
+      familyId: inv.family_id,
+      familyName: fam?.name ?? 'Your Family', 
+      role: inv.role 
+    };
+  }
+
+  const { data, error } = await supabase
+    .rpc('validate_invitation_by_code', { 
+      p_code: code,
+      p_ip_address: null // Client-side cannot reliably get IP, backend handles this
+    });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'Invalid, expired, or already-used invitation code.' };
+  }
+
+  const row = data[0];
+  return { 
+    ok: true, 
+    familyId: row.family_id,
+    familyName: row.family_name, 
+    role: row.role,
+    expiresAt: row.expires_at
+  };
+}
+
+/**
+ * Accept invitation using readable code
+ * 
+ * @param code - Human-readable invitation code
+ * @param userId - Authenticated user ID
+ * @param userName - User display name
+ * @returns family_id on success
+ */
+export async function acceptInvitationByCode(
+  code: string,
+  userId: string,
+  userName: string,
+): Promise<{ ok: boolean; familyId?: string; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    // Demo mode: use localStorage
+    const normalizedCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const result = storage.acceptInvitation(normalizedCode, userId, userName);
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true, familyId: result.familyId };
+  }
+
+  const { data, error } = await supabase
+    .rpc('accept_invitation_by_code', {
+      p_code:      code,
+      p_user_id:   userId,
+      p_user_name: userName,
+    });
+
+  if (error) return { ok: false, error: error.message };
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, familyId: row?.family_id };
+}
+
+/**
+ * List all invitations for a family (admin only)
+ * 
+ * @param familyId - Family to list invitations for
+ * @returns array of invitations with status
+ */
+export async function listFamilyInvitations(familyId: string): Promise<{
+  ok: boolean;
+  invitations?: Array<{
+    id: string;
+    email: string;
+    role: string;
+    invitation_code: string;
+    token: string;
+    created_at: string;
+    expires_at: string;
+    accepted_at: string | null;
+    revoked_at: string | null;
+    status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+  }>;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured || !supabase) {
+    // Demo mode: get from localStorage
+    const invitations = storage.getInvitations(familyId);
+    return { ok: true, invitations: invitations as any };
+  }
+
+  const { data, error } = await supabase
+    .rpc('list_family_invitations', { p_family_id: familyId });
+
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, invitations: data as any };
 }

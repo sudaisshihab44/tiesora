@@ -160,6 +160,11 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
 
     const currentFamily = storage.getCurrentFamily();
     const currentUser = storage.getCurrentUser();
+    
+    if (!currentFamily || !currentUser) {
+      setError('Unable to save changes. Please refresh and try again.');
+      return;
+    }
 
     if (isEditing && editPerson) {
       const updated = storage.updatePerson(editPerson.id, {

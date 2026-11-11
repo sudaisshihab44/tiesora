@@ -79,6 +79,11 @@ export const EventsPage: React.FC<EventsPageProps> = ({
 
     const family = storage.getCurrentFamily();
     const user = storage.getCurrentUser();
+    
+    if (!family || !user) {
+      setError('Unable to add event. Please refresh and try again.');
+      return;
+    }
 
     storage.addEvent({
       family_id: family.id,
