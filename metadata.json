@@ -1,0 +1,6 @@
+{
+  "name": "Tiesora",
+  "description": "Build your family tree, discover relationships between relatives, and preserve family memories. Every family. Every connection. Every story.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

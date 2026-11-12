@@ -1,0 +1,759 @@
+MASTER BUILD PROMPT — KINROOTS
+
+Smart Family Tree & Relationship Intelligence Platform
+
+Act as a senior product designer, full-stack software engineer, database architect, and UX specialist. Build a complete, modern, responsive web application called KinRoots — a smart family tree and family relationship platform that makes it effortless for people to build their family tree, understand relationships between any two people, collaborate with relatives, and preserve family memories.
+
+Do not build just a landing page or a static prototype. Build a functional web application with connected screens, real interactions, reusable components, proper data models, validation, and a clear path to production deployment.
+
+1. PRODUCT VISION
+
+Product name: KinRoots
+
+Tagline: Every relationship has a story.
+
+Core promise: Build your family. Discover your connections. Preserve your legacy.
+
+KinRoots should be much easier to understand and use than traditional genealogy software. It must support small families, large extended families, multiple generations, and complex family structures.
+
+The product should feel like a premium modern SaaS platform combined with a warm, personal family-history experience.
+
+Prioritize:
+
+- Simplicity for non-technical users.
+- Accurate relationship calculations.
+- Interactive and flexible family tree visualization.
+- Secure collaboration between relatives.
+- Excellent mobile and desktop usability.
+- Reliable storage and retrieval of family information.
+- A scalable architecture suitable for future Android and iOS applications.
+
+2. DESIGN SYSTEM AND VISUAL DIRECTION
+
+Create a sophisticated, elegant, minimal, trustworthy design.
+
+Visual direction:
+
+- White or warm off-white backgrounds.
+- Deep forest green as the primary brand color.
+- Muted sage green for secondary surfaces.
+- Charcoal text and subtle gray borders.
+- Warm cream accents for family memories and heritage sections.
+- Use gradients sparingly.
+- Rounded cards with consistent corner radii.
+- Subtle shadows, refined spacing, and generous whitespace.
+- Professional typography with Inter or a similar modern sans-serif.
+- Consistent icons using Lucide.
+- Beautiful profile avatars and tasteful image placeholders.
+- Smooth, restrained transitions and micro-interactions.
+
+Avoid:
+
+- Excessive gradients and neon colors.
+- Crowded dashboards.
+- Oversized headings everywhere.
+- Excessive animation.
+- Unnecessary modals and confirmation dialogs.
+- Cartoon-style illustrations.
+- Generic AI-generated dashboard layouts.
+- Decorative elements that interfere with usability.
+
+Use a consistent design system with reusable colors, typography, spacing, buttons, cards, inputs, dropdowns, dialogs, tooltips, and navigation components.
+
+Provide accessible color contrast, keyboard navigation, visible focus states, clear loading states, empty states, error messages, and success feedback.
+
+3. APPLICATION ARCHITECTURE
+
+Build the following application areas:
+
+1. Public landing page.
+2. Authentication and onboarding.
+3. Main dashboard.
+4. Interactive family tree.
+5. Member profiles.
+6. Relationship explorer.
+7. Family memories and timeline.
+8. Family events.
+9. Family members and invitations.
+10. Notifications.
+11. Family administration and privacy settings.
+12. User settings.
+
+Use a consistent global application shell after login.
+
+Desktop navigation:
+
+- Left sidebar with logo, family selector, and navigation.
+- Main content area.
+- Top bar with search, notifications, profile menu, and family context.
+
+Mobile navigation:
+
+- Compact header.
+- Touch-friendly controls.
+- Bottom navigation for Home, Family Tree, Relationships, Memories, and More.
+- Responsive dialogs or bottom sheets.
+- No horizontal page overflow.
+- Tree controls optimized for touch.
+
+4. PUBLIC LANDING PAGE
+
+Create a premium marketing website.
+
+Hero section:
+Headline: "Your family story, beautifully connected."
+
+Supporting text:
+"Discover how everyone is connected, bring generations together, and preserve the memories that make your family unique."
+
+Primary CTA: "Build Your Family Tree"
+Secondary CTA: "Explore How It Works"
+
+Show a beautiful product preview of an interactive family tree with connected profile cards.
+
+Include:
+
+- Product benefits.
+- How KinRoots works in three simple steps.
+- Interactive family tree preview.
+- Relationship finder demonstration.
+- Family memories section.
+- Privacy and data ownership section.
+- Frequently asked questions.
+- Footer with product links, contact, privacy policy, and terms.
+
+Do not fabricate customer testimonials, user statistics, awards, or trust certifications.
+
+The landing page should work on mobile and desktop.
+
+5. AUTHENTICATION AND ONBOARDING
+
+Implement:
+
+- Sign up with email and password.
+- Login and logout.
+- Email verification when supported.
+- Password reset.
+- Session persistence.
+- Protected application routes.
+- Helpful authentication error messages.
+
+After registration, show a simple onboarding wizard.
+
+Step 1: Welcome to KinRoots.
+
+Step 2: Create a family.
+
+- Family name.
+- Optional description.
+- Optional cover photo.
+- Preferred language.
+- Initial privacy setting.
+
+Step 3: Add yourself or the first family member.
+
+Step 4: Add a parent, child, spouse, sibling, or another relative.
+
+Step 5: Display the first family tree.
+
+Step 6: Offer an optional invitation to relatives.
+
+Allow users to skip optional steps and complete them later. Never force users to fill out unnecessary personal information.
+
+6. MAIN DASHBOARD
+
+Create a personalized dashboard showing:
+
+- Current family name and family avatar.
+- Total family members.
+- Number of connected generations.
+- Recently viewed members.
+- Upcoming birthdays and anniversaries, when dates are available.
+- Recent family updates.
+- Pending invitations and edit requests.
+- Recently added memories.
+- Quick actions.
+
+Quick actions:
+
+- Add a family member.
+- Open family tree.
+- Find a relationship.
+- Upload a memory.
+- Invite a relative.
+
+Use real database information when the backend is connected. For a demo, use clearly identified sample data.
+
+If no family exists, show a helpful empty state with a prominent "Create Your Family" action instead of displaying fake statistics.
+
+7. INTERACTIVE FAMILY TREE — THE CORE FEATURE
+
+Build a real, interactive family tree, not a static image.
+
+The tree should be visually attractive, intuitive, and usable for large families.
+
+Each person should appear in a profile card containing:
+
+- Profile photo or initials.
+- Display name.
+- Optional birth and death years.
+- Relevant relationship label.
+- Living or deceased status where appropriate and authorized.
+
+Core interactions:
+
+- Zoom in and out.
+- Pan by dragging.
+- Fit the entire tree to the screen.
+- Center the tree on a selected person.
+- Expand and collapse branches.
+- Navigate between generations.
+- Search for a person.
+- Select a member to open a profile drawer.
+- Add a relative directly from a person card.
+- Edit a member.
+- Show relationship labels on connections.
+- Highlight a selected person's ancestors and descendants.
+- Switch between tree, ancestors, descendants, and list views.
+
+Provide a clear "Add Relative" button and contextual actions directly on each member card.
+
+Relationship connections should be visually distinguishable:
+
+- Parent-child connections.
+- Spouse or partner connections.
+- Adoptive and step-family connections.
+- Other explicitly supported relationships.
+
+Do not encode relationship meaning through color alone. Use labels, patterns, or legends where appropriate.
+
+Prevent the tree from becoming unreadable when many people are displayed. Implement branch collapsing, progressive expansion, search-based focus, and virtualization or other performance optimizations where necessary.
+
+When a branch contains many relatives, allow users to explore it without rendering every person at once.
+
+8. ADD AND EDIT FAMILY MEMBER
+
+Create a clean, easy-to-use form with progressive disclosure.
+
+Required or basic fields:
+
+- Full name.
+- Preferred display name.
+- Profile image.
+- Date of birth, optional.
+- Date of death, optional.
+- Living or deceased status where appropriate.
+- Short biography, optional.
+- Gender, optional and only when useful for the user's chosen terminology.
+
+Relationship actions:
+
+- Add parent.
+- Add child.
+- Add sibling.
+- Add spouse or partner.
+- Add another relative.
+- Connect an existing member.
+- Record adoptive, step, guardian, or other supported relationships.
+
+Important behavior:
+
+- Never create a duplicate member simply because the user adds an existing relative.
+- Search existing family members before creating new ones.
+- Explain the relationship being created before saving.
+- Validate dates and prevent impossible date combinations.
+- Allow uncertain dates and unknown information.
+- Support editing and removing relationships independently of deleting people.
+- Ask for confirmation before destructive actions.
+- Preserve historical information and audit records when appropriate.
+
+Do not require all fields. A name and a relationship should be enough to get started.
+
+9. RELATIONSHIP EXPLORER — PRIMARY DIFFERENTIATOR
+
+Create a dedicated "Find a Relationship" page.
+
+The user selects:
+
+- Person A.
+- Person B.
+
+Provide autocomplete search fields with profile photos and disambiguation for people with similar names.
+
+After selection, show:
+
+1. The clearest valid relationship explanation.
+2. The connecting family path.
+3. An interactive relationship chain.
+4. Each intermediate person's profile.
+5. Shared ancestors when identifiable.
+6. Other valid connection paths when useful.
+7. Any uncertainty or missing relationship information.
+
+Example path:
+
+You → Mother → Grandfather → Aunt → Cousin
+
+The application must calculate the relationship from stored relationship records, not infer it from names or profile descriptions.
+
+Use a graph-based pathfinding algorithm, such as breadth-first search for suitable unweighted relationship paths, with relationship-aware ranking and filtering.
+
+Do not assume that the shortest graph path is always the closest biological relationship. The system must account for relationship types, direction, and ambiguity.
+
+The relationship engine must distinguish:
+
+- Parent and child.
+- Full and half-siblings where sufficient information exists.
+- Grandparents and grandchildren.
+- Aunts and uncles by blood or marriage.
+- First cousins and more distant cousin relationships.
+- Great-grandparent and great-grandchild connections.
+- Step-family and adoptive relationships.
+- Spouses and partners.
+- In-laws where their exact relationship is known.
+- Unknown, disputed, or incomplete relationships.
+
+Only label a relationship when the underlying records support it. If multiple interpretations exist, explain the alternatives instead of returning a false certainty.
+
+Support an interactive chain where clicking a person opens their profile and highlights that person's connections on the tree.
+
+If the two people are disconnected, clearly state that no known connection exists in the current family records.
+
+10. FAMILY MEMBER PROFILE
+
+Create a detailed profile page or drawer.
+
+Sections:
+
+- Overview.
+- Family relationships.
+- Ancestors.
+- Descendants.
+- Photos and memories.
+- Biography and life events.
+- Important dates.
+- Contributions and record history, subject to permissions.
+
+Actions:
+
+- Edit profile.
+- Add a relative.
+- Find relationship to another member.
+- Attach a family memory.
+- Suggest a correction.
+- View the person's position in the tree.
+
+Protect living people's private details. Do not expose sensitive information merely because a user can access the family tree.
+
+11. FAMILY COLLABORATION AND PERMISSIONS
+
+Support multiple users collaborating on one family.
+
+Roles:
+
+- Family owner.
+- Administrator.
+- Editor.
+- Contributor.
+- Viewer.
+
+Define and enforce server-side permissions for every role.
+
+Example permissions:
+
+- Owners manage the family, membership, roles, and privacy settings.
+- Administrators manage members and approve permitted changes.
+- Editors update authorized profiles and relationships.
+- Contributors suggest new people, corrections, and memories.
+- Viewers see only the information shared with them.
+
+Features:
+
+- Invite relatives using secure invitation links.
+- Set invitation expiration.
+- Revoke invitations.
+- Accept or decline invitations.
+- Assign and change roles.
+- Review pending edit requests.
+- Approve or reject changes.
+- View an audit history.
+- Prevent unauthorized deletion or modification.
+
+Allow a family owner to configure who can view living members, private photos, dates, biographies, and sensitive records.
+
+Do not make family trees publicly searchable by default.
+
+12. FAMILY MEMORIES AND TIMELINE
+
+Build a simple digital family archive.
+
+Allow authorized members to:
+
+- Upload photographs.
+- Add captions and stories.
+- Record important milestones.
+- Associate memories with one or more people.
+- Group memories into albums.
+- Browse a chronological timeline.
+- Filter memories by person or branch.
+- Edit or remove their own contributions, subject to permissions.
+
+Support image previews, file validation, upload progress, and clear upload errors.
+
+For a later version, prepare the architecture for videos, audio stories, digitized documents, and downloadable family-history books.
+
+Use private storage by default. Generate authorized access links instead of exposing private storage files publicly.
+
+13. FAMILY EVENTS AND NOTIFICATIONS
+
+Implement basic event support:
+
+- Birthdays.
+- Anniversaries.
+- Family reunions.
+- Custom family events.
+- Event descriptions, dates, and optional locations.
+- Member invitations to events.
+- Reminder preferences.
+
+Create an in-app notification center for:
+
+- Invitations.
+- Approved or rejected changes.
+- Mentions or family contributions, if supported.
+- Upcoming events.
+- Relevant family updates.
+
+Only show events and reminders that the user is authorized to access.
+
+Do not claim that email, SMS, push notifications, or scheduled reminders work unless the corresponding delivery infrastructure is configured and tested.
+
+14. DATABASE AND BACKEND
+
+Use Next.js + TypeScript + Tailwind CSS for the frontend and Supabase with PostgreSQL for authentication, database, and storage.
+
+Design a normalized schema with suitable primary keys, foreign keys, constraints, indexes, timestamps, and audit fields.
+
+Create at least these tables:
+
+1. profiles
+2. families
+3. family_memberships
+4. family_people
+5. relationships
+6. invitations
+7. change_requests
+8. memories
+9. events
+10. notifications
+11. audit_logs
+
+Suggested structure:
+
+profiles:
+
+- id linked to authenticated user.
+- display_name.
+- avatar_path.
+- preferred_language.
+- created_at.
+
+families:
+
+- id.
+- name.
+- description.
+- avatar_path.
+- owner_id.
+- privacy_settings.
+- created_at.
+- updated_at.
+
+family_memberships:
+
+- id.
+- family_id.
+- user_id.
+- role.
+- status.
+- created_at.
+
+family_people:
+
+- id.
+- family_id.
+- full_name.
+- display_name.
+- birth_date, nullable.
+- death_date, nullable.
+- date_precision, where required.
+- biography, nullable.
+- avatar_path, nullable.
+- living_status, where appropriate.
+- created_by.
+- created_at.
+- updated_at.
+
+relationships:
+
+- id.
+- family_id.
+- source_person_id.
+- target_person_id.
+- relationship_type.
+- relationship_status.
+- valid_from, optional.
+- valid_to, optional.
+- created_by.
+- verified_at, optional.
+- created_at.
+- updated_at.
+
+Define relationship direction explicitly and document it. For example, a parent-child record should have an unambiguous source and target, rather than relying on frontend interpretation.
+
+Additional requirements:
+
+- Support multiple relationship records between the same people only when their semantics justify them.
+- Validate relationships and prevent invalid self-links.
+- Support disputed or unverified connections.
+- Keep relationship records independent of visual layout.
+- Store family event and memory associations through proper relational tables where needed.
+- Index family_id and relationship endpoint columns for graph queries.
+- Add pagination and search for large families.
+
+Implement the database migrations and provide the SQL needed to initialize the project.
+
+15. SECURITY AND DATA PRIVACY
+
+Implement Supabase Row Level Security on every table containing private or family-specific data.
+
+Security requirements:
+
+- Validate authorization on the server and in database policies.
+- Ensure a user can access only families where they have the required membership or explicitly granted access.
+- Validate role-based actions independently of frontend controls.
+- Keep Supabase service-role credentials and other secrets on the server only.
+- Use environment variables for configuration.
+- Validate and sanitize user input.
+- Restrict file types and sizes.
+- Use private buckets and controlled access to stored media.
+- Prevent insecure direct object references.
+- Apply appropriate rate limits to sensitive endpoints.
+- Log important administrative changes.
+- Support account deletion, data export, and family data deletion according to ownership, retention rules, and applicable law.
+- Do not expose living people's private information in public URLs, metadata, or search results.
+
+Do not implement security as a mockup. Provide real policies and explain any infrastructure-dependent security features that require setup.
+
+16. AI FAMILY ASSISTANT — OPTIONAL EXTENSION
+
+Design the architecture so an AI assistant can be added safely.
+
+Example questions:
+
+- "How am I related to this person?"
+- "Show the ancestors shared by these two people."
+- "Summarize my grandmother's recorded family history."
+- "Which family branch contains this relative?"
+
+The assistant must retrieve authorized records and use the deterministic relationship engine for calculations.
+
+It must:
+
+- Respect the current user's access permissions.
+- Cite or link the family records supporting its answer.
+- Identify missing or contradictory records.
+- Never invent people, dates, events, or relationships.
+- Avoid exposing information the current user is not authorized to view.
+
+Do not require an AI API key for the core family tree or relationship finder. Those functions must work independently of any LLM.
+
+17. SEARCH, FILTERS, AND ACCESSIBILITY
+
+Implement:
+
+- Search people by full name or display name.
+- Search by branch or known relationship.
+- Filter by generation.
+- Filter memories by person and date.
+- Show helpful suggestions when no match is found.
+- Support keyboard navigation and screen readers.
+- Provide descriptive labels for controls and profile images.
+- Use accessible dialogs and focus management.
+- Respect reduced-motion preferences.
+- Keep mobile touch targets comfortable.
+
+18. PERFORMANCE AND RESPONSIVENESS
+
+The app must work on:
+
+- Desktop computers.
+- Tablets.
+- Android mobile browsers.
+- iOS mobile browsers.
+
+Requirements:
+
+- Responsive layouts at all screen sizes.
+- Lazy-load large images.
+- Avoid rendering an entire huge family tree unnecessarily.
+- Use progressive branch expansion and efficient graph traversal.
+- Add pagination to long lists.
+- Show skeletons or loading indicators for asynchronous operations.
+- Prevent duplicate submissions.
+- Handle network failures gracefully.
+- Provide retry actions.
+- Avoid unnecessary full-page reloads.
+
+19. DEMO DATA AND TESTING
+
+Provide a clearly labeled sample family for development and demonstration.
+
+Use fictional names and fictional family information. Include at least three generations and demonstrate:
+
+- Parents and children.
+- Siblings.
+- Aunts and uncles.
+- Cousins.
+- A marriage or partnership.
+- A step or adoptive relationship.
+- An incomplete relationship.
+- Two people connected through multiple possible paths.
+
+Test the following:
+
+- Creating a family.
+- Adding and editing people.
+- Connecting existing members.
+- Detecting duplicate-member candidates.
+- Calculating known relationships.
+- Handling disconnected people.
+- Handling ambiguous connections.
+- Expanding and collapsing branches.
+- Inviting family members.
+- Role-based access restrictions.
+- Unauthorized database requests.
+- File uploads and permissions.
+- Mobile responsiveness.
+- Error, empty, and loading states.
+
+Never present sample family information as real user data.
+
+20. IMPLEMENTATION REQUIREMENTS
+
+Build the application in a maintainable, modular structure.
+
+Use:
+
+- TypeScript with strict type checking.
+- Reusable UI components.
+- Clear separation of UI, business logic, data access, and authorization.
+- Database migrations.
+- Server-side validation.
+- Centralized error handling.
+- Reusable relationship calculation functions.
+- Unit tests for relationship logic.
+- Integration tests for critical database operations.
+- Environment variables and a documented setup process.
+
+Create reusable components such as:
+
+- FamilyTreeCanvas.
+- PersonCard.
+- PersonProfileDrawer.
+- AddRelativeDialog.
+- RelationshipSelector.
+- RelationshipChain.
+- FamilyBranchSelector.
+- MemberSearch.
+- FamilyInvitationDialog.
+- PermissionEditor.
+- MemoryGallery.
+- TimelineView.
+- EmptyState.
+- LoadingSkeleton.
+- ErrorState.
+
+Do not put all application logic into a single component.
+
+Do not use buttons that do nothing. Every visible control should work, navigate to a functional screen, open a meaningful dialog, or be clearly marked as unavailable.
+
+Do not replace backend functionality with hardcoded frontend arrays and claim that the application is production-ready.
+
+If Supabase credentials are not configured, build a clearly labeled demo mode with a local mock data adapter. Keep the data-access layer separate so it can be replaced with Supabase without rewriting the UI. Do not silently pretend that mock changes are saved to a real cloud database.
+
+21. DEVELOPMENT AND DELIVERY ORDER
+
+Work in the following order:
+
+Phase 1:
+
+- Establish the project structure.
+- Build the design system and responsive app shell.
+- Create the landing page and authentication screens.
+- Build the initial database schema.
+
+Phase 2:
+
+- Implement family creation and member management.
+- Implement relationship records.
+- Build the interactive family tree.
+- Build and test the relationship engine.
+
+Phase 3:
+
+- Implement profiles, collaboration, permissions, and invitations.
+- Add memories and the basic timeline.
+- Complete privacy and security rules.
+
+Phase 4:
+
+- Add dashboard summaries, notifications, and event features.
+- Improve mobile responsiveness and performance.
+- Write tests and deployment documentation.
+
+Phase 5:
+
+- Prepare the PWA experience.
+- Document future AI integration and native mobile development.
+
+After each phase, verify that the application still runs. Fix compilation errors, broken imports, runtime errors, invalid database queries, and nonfunctional navigation before proceeding.
+
+22. FINAL ACCEPTANCE CRITERIA
+
+The project is successful when:
+
+1. A user can create a family and add relatives without confusion.
+2. Family members appear in a genuine interactive tree.
+3. Users can find how two people are connected through actual stored records.
+4. The relationship chain can be explored interactively.
+5. The application supports multiple family structures.
+6. Multiple authorized users can collaborate.
+7. Unauthorized users cannot access private family data.
+8. Family memories can be uploaded and viewed with correct permissions.
+9. All major navigation and actions work.
+10. The interface is polished on desktop and mobile.
+11. The database schema, environment setup, migrations, and deployment steps are documented.
+12. The app clearly distinguishes functional backend features from demo-only features.
+
+FINAL INSTRUCTION
+
+Begin by inspecting the available project environment and identifying the appropriate implementation approach. Then build the actual application, not merely a plan, a screenshot, or a landing page.
+
+Prioritize a working end-to-end experience: create family → add relatives → connect relationships → explore the tree → find a relationship → invite relatives.
+
+Make KinRoots feel like a cohesive, production-oriented product with a distinctive visual identity and exceptionally simple user experience.
+
+Where a requirement is ambiguous, choose the most secure and user-friendly approach, document the decision, and continue implementation without unnecessarily stopping to ask questions.
+
+At the end, provide:
+
+- A summary of implemented functionality.
+- The project file structure.
+- Required environment variables.
+- Supabase setup and SQL migration instructions.
+- Instructions to run locally.
+- Instructions to deploy on Vercel.
+- Any features that remain incomplete or require external credentials.
+
+Do not claim a feature is implemented unless it actually works.

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#285C43" />
+      <stop offset="100%" stop-color="#193D2D" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E7F0E8" />
+      <stop offset="100%" stop-color="#a8c5aa" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+
+  <!-- Central hub node -->
+  <circle cx="256" cy="256" r="32" fill="#FAF9F6" opacity="0.95" />
+
+  <!-- Branch 1: Top-left -->
+  <line x1="256" y1="256" x2="148" y2="148" stroke="#E7F0E8" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="148" cy="148" r="22" fill="#52876A" stroke="#E7F0E8" stroke-width="6" />
+
+  <!-- Branch 2: Top-right -->
+  <line x1="256" y1="256" x2="364" y2="148" stroke="#E7F0E8" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="364" cy="148" r="22" fill="#52876A" stroke="#E7F0E8" stroke-width="6" />
+
+  <!-- Branch 3: Bottom-left -->
+  <line x1="256" y1="256" x2="148" y2="364" stroke="#E7F0E8" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="148" cy="364" r="22" fill="#52876A" stroke="#E7F0E8" stroke-width="6" />
+
+  <!-- Branch 4: Bottom-right -->
+  <line x1="256" y1="256" x2="364" y2="364" stroke="#E7F0E8" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="364" cy="364" r="22" fill="#52876A" stroke="#E7F0E8" stroke-width="6" />
+
+  <!-- Sub-branch: Top-left leaf -->
+  <line x1="148" y1="148" x2="96" y2="104" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="96" cy="96" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Sub-branch: Top-left leaf 2 -->
+  <line x1="148" y1="148" x2="148" y2="88" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="148" cy="80" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Sub-branch: Top-right leaf -->
+  <line x1="364" y1="148" x2="416" y2="104" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="416" cy="96" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Sub-branch: Top-right leaf 2 -->
+  <line x1="364" y1="148" x2="364" y2="88" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="364" cy="80" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Sub-branch: Bottom-left leaf -->
+  <line x1="148" y1="364" x2="96" y2="416" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="88" cy="422" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Sub-branch: Bottom-right leaf -->
+  <line x1="364" y1="364" x2="416" y2="416" stroke="#E7F0E8" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="422" cy="422" r="14" fill="url(#leafGrad)" stroke="#E7F0E8" stroke-width="5" />
+
+  <!-- Inner accent dot on hub -->
+  <circle cx="256" cy="256" r="10" fill="#285C43" opacity="0.4" />
+</svg>
