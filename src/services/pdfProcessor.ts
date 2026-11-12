@@ -11,6 +11,7 @@
  */
 
 import type { ExtractionMethod } from '../types';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -59,11 +60,13 @@ export async function extractPDFContent(
   const errors: string[] = [];
 
   try {
-    // Dynamically import PDF.js
+    // Dynamically import PDF.js so it stays out of the main bundle.
     const pdfjsLib = await import('pdfjs-dist');
-    
-    // Set worker source
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+    // Serve the worker from the app bundle. A CDN URL tied to pdfjsLib.version
+    // is unsafe after upgrades: the versioned file may not exist, and a
+    // mismatched worker breaks extraction silently.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
     
     // Load PDF document
     const arrayBuffer = await file.arrayBuffer();
@@ -113,6 +116,7 @@ export async function extractPDFContent(
               canvas.width = scaledViewport.width;
               
               const renderContext = {
+                canvas,
                 canvasContext: context,
                 viewport: scaledViewport,
               };

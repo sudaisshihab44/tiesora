@@ -29,21 +29,34 @@ This matches the README's known issue. It must be fixed properly in Phase 8; `vi
 
 ## Build warnings
 
-- `pdfjs-dist` uses direct `eval`.
 - Main JS chunk is 626 kB (over the 500 kB warning threshold).
 - Two ineffective dynamic imports (`src/types/index.ts`, `src/services/supabase.ts`).
-- `pdfjs-dist@3.11.174` is a **high-severity runtime dependency**: arbitrary JavaScript execution when opening a malicious PDF. This must be upgraded during the PDF import phase.
 
 ## Dependency audit
 
-`npm audit` reports **9 vulnerabilities**: 1 critical, 2 high, 4 moderate, 2 low.
+Original baseline: **9 vulnerabilities** — 1 critical, 2 high, 4 moderate, 2 low.
 
-- **Critical:** `tar` (transitive via `@mapbox/node-pre-gyp`).
-- **High:** `pdfjs-dist <= 4.1.392`; `glob`.
-- **Moderate:** `minimatch`, `workbox-build`/`vite-plugin-pwa` chain.
-- **Low:** `deepmerge` prototype poisoning (build-time).
+- **Critical:** `tar` (transitive via `canvas` → `@mapbox/node-pre-gyp`, an *optional* dependency of the old `pdfjs-dist`).
+- **High:** `pdfjs-dist <= 4.1.392` (arbitrary JavaScript execution on a malicious PDF).
+- **Moderate/low:** `glob`, `minimatch`, `workbox-build`/`vite-plugin-pwa`, `deepmerge` (all build-time).
 
-`npm audit fix --force` would make breaking changes (vite-plugin-pwa downgrade, pdfjs-dist 6.x). We will upgrade deliberately in Phase 6/8, not blindly.
+### Post-baseline security update
+
+- `pdfjs-dist` upgraded **3.11.174 → 6.5.438**.
+  - Fixed the high-severity PDF.js advisory.
+  - The new optional dependency is `@napi-rs/canvas`, which removes the
+    `canvas` → `@mapbox/node-pre-gyp` → `tar` critical chain.
+  - Worker is now bundled locally from
+    `pdfjs-dist/build/pdf.worker.min.mjs?url` instead of a version-pinned CDN
+    URL.
+  - `page.render()` now passes the `canvas` element, as required by 6.x types.
+- **`npm audit --omit=dev` now reports 0 vulnerabilities.**
+- Remaining full-tree audit: **6 dev-only advisories** (2 low, 4 moderate) in
+  the `vite-plugin-pwa` → `workbox-build` → `glob`/`minimatch`/`deepmerge`
+  chain. These are build-time only. `npm audit fix --force` would downgrade
+  `vite-plugin-pwa` to 1.1.0, a breaking change, so this is deferred to
+  Phase 8 for a deliberate upgrade.
+- Build and all 17 relationship tests still pass after the upgrade.
 
 ## Schema inconsistencies found
 
