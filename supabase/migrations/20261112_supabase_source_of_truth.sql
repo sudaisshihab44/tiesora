@@ -138,6 +138,15 @@ as $$
 declare
   admin_count integer;
 begin
+  -- Allow cascade cleanup when the whole family is being deleted. The family
+  -- row is removed first, so this membership delete is not an admin leaving.
+  if tg_op = 'DELETE'
+     and not exists (
+       select 1 from public.families where id = old.family_id
+     ) then
+    return old;
+  end if;
+
   select count(*)
   into admin_count
   from public.family_memberships
