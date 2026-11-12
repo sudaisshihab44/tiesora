@@ -70,7 +70,8 @@ expected_functions(name) as (
     ('validate_invitation'),
     ('accept_invitation'),
     ('import_approved_family_data'),
-    ('create_import_job')
+    ('create_import_job'),
+    ('handle_new_user')
 ),
 
 function_check as (
@@ -108,6 +109,8 @@ column_check as (
     case when c.column_name is null then 'MISSING' else 'OK' end::text as status,
     coalesce(c.data_type, 'column not found')::text as detail
   from (values
+    ('profiles', 'full_name'),
+    ('profiles', 'email_verified'),
     ('family_memberships', 'user_email'),
     ('family_memberships', 'user_name'),
     ('memories', 'created_by_name'),
@@ -167,6 +170,22 @@ realtime_check as (
   from pg_publication_tables t
   where t.pubname = 'supabase_realtime'
     and t.schemaname = 'public'
+),
+
+auth_trigger_check as (
+  select
+    'trigger'::text as section,
+    'auth.users / on_auth_user_created'::text as item,
+    case
+      when exists (
+        select 1
+        from pg_trigger t
+        where t.tgname = 'on_auth_user_created'
+          and t.tgrelid = 'auth.users'::regclass
+      ) then 'OK'
+      else 'MISSING'
+    end::text as status,
+    'creates public.profiles row on signup'::text as detail
 )
 
 select section, item, status, detail from table_check
@@ -177,4 +196,5 @@ union all select section, item, status, detail from policy_check
 union all select section, item, status, detail from constraint_check
 union all select section, item, status, detail from storage_policy_check
 union all select section, item, status, detail from realtime_check
+union all select section, item, status, detail from auth_trigger_check
 order by section, status, item;
