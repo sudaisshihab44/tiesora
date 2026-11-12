@@ -471,6 +471,11 @@ drop policy if exists "Users can upload PDFs to their family folders" on storage
 drop policy if exists "Users can read PDFs from their family folders" on storage.objects;
 drop policy if exists "Admins can delete family PDFs" on storage.objects;
 drop policy if exists "Admins can update family PDF metadata" on storage.objects;
+drop policy if exists "Admins can upload PDFs to their family folders" on storage.objects;
+drop policy if exists "Admins can view PDFs from their family folders" on storage.objects;
+drop policy if exists "Admins can delete PDFs from their family folders" on storage.objects;
+drop policy if exists "Admins can update PDFs from their family folders" on storage.objects;
+drop policy if exists "Admins can upload family PDFs" on storage.objects;
 drop policy if exists "Family admins can upload PDFs" on storage.objects;
 drop policy if exists "Family members can read PDFs" on storage.objects;
 drop policy if exists "Family admins can delete PDFs" on storage.objects;
@@ -530,7 +535,12 @@ begin
       and p.prosecdef
       and p.prokind = 'f'
   loop
-    execute format('alter function %s set search_path = public', fn.signature);
+    -- Keep `extensions` on the path: pgcrypto (gen_random_bytes) lives there
+    -- on Supabase, and create_invitation relies on it.
+    execute format(
+      'alter function %s set search_path = public, extensions, pg_catalog',
+      fn.signature
+    );
     execute format('revoke all on function %s from public', fn.signature);
     begin
       execute format('revoke all on function %s from anon', fn.signature);

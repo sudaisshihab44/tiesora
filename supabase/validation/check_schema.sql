@@ -183,6 +183,16 @@ storage_policy_check as (
     and p.tablename = 'objects'
 ),
 
+storage_object_check as (
+  select
+    'storage_objects'::text as section,
+    o.bucket_id::text as item,
+    'INFO'::text as status,
+    (count(*)::text || ' objects')::text as detail
+  from storage.objects o
+  group by o.bucket_id
+),
+
 realtime_check as (
   select
     'realtime'::text as section,
@@ -218,6 +228,7 @@ union all select section, item, status, detail from column_check
 union all select section, item, status, detail from policy_check
 union all select section, item, status, detail from constraint_check
 union all select section, item, status, detail from storage_policy_check
+union all select section, item, status, detail from storage_object_check
 union all select section, item, status, detail from realtime_check
 union all select section, item, status, detail from auth_trigger_check
 order by section, status, item;
