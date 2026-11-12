@@ -59,6 +59,18 @@ Every function calls `db()`, which throws if Supabase is not configured.
 Phase 7 will add a separate local sample provider; the UI must branch before
 calling this layer when `isSupabaseConfigured` is false.
 
+## Connectivity check
+
+Run:
+
+```bash
+node scripts/check-connection.mjs
+```
+
+It loads `.env`, verifies the Auth endpoint, and makes one read-only
+RLS-scoped query. As an anonymous caller, `families` correctly returns
+0 rows. The current project host was verified and the check passed.
+
 ## Tests
 
 `npm.cmd test` runs 47 tests:
