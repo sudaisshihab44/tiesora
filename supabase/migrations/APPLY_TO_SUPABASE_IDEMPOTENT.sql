@@ -688,16 +688,22 @@ GRANT  EXECUTE ON FUNCTION public.create_family_with_admin(UUID, TEXT, TEXT, JSO
 -- ==============================================================================
 
 -- ─── CREATE_INVITATION ───────────────────────────────────────────────────────
+-- The return shape changed between migrations: older versions returned only
+-- `token`, newer versions return `token` + `link_fragment`. CREATE OR REPLACE
+-- cannot change a function's return type, so drop the old signature first.
+-- The app only reads `token`, so the two-column shape is backwards compatible.
+DROP FUNCTION IF EXISTS public.create_invitation(UUID, TEXT, TEXT, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.create_invitation(
   p_family_id       UUID,
   p_email           TEXT,
   p_role            TEXT,
   p_expires_in_days INTEGER DEFAULT 7
 )
-RETURNS TABLE (token TEXT)
+RETURNS TABLE (token TEXT, link_fragment TEXT)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions, pg_catalog
 AS $$
 DECLARE
   v_user_role TEXT;
@@ -705,13 +711,22 @@ DECLARE
 BEGIN
   -- Check caller is admin of the family
   v_user_role := public.get_user_family_role(p_family_id);
-  
+
   IF v_user_role != 'admin' THEN
     RAISE EXCEPTION 'Only admins can create invitations' USING ERRCODE = 'P0001';
   END IF;
 
-  -- Generate token server-side
-  v_token := encode(gen_random_bytes(32), 'hex');
+  IF p_role NOT IN ('admin', 'viewer') THEN
+    RAISE EXCEPTION 'Invalid role: must be admin or viewer' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Generate token server-side. pgcrypto lives in the extensions schema on
+  -- Supabase; including it in search_path also supports older installs where
+  -- gen_random_bytes was created in public.
+  v_token := translate(
+    encode(gen_random_bytes(24), 'base64'),
+    '+/=', '-_'
+  );
 
   -- Insert invitation
   INSERT INTO public.invitations (family_id, email, role, token, expires_at, created_by)
@@ -724,7 +739,7 @@ BEGIN
     auth.uid()
   );
 
-  RETURN QUERY SELECT v_token;
+  RETURN QUERY SELECT v_token, '#invite=' || v_token;
 END;
 $$;
 

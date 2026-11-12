@@ -41,6 +41,10 @@
 --   • Role is validated server-side (only 'admin' | 'viewer' accepted)
 --   • Token is generated using extensions.gen_random_bytes() from pgcrypto
 -- ─────────────────────────────────────────────────────────────────────────────
+-- The return shape changed between migrations (token vs token+link_fragment).
+-- CREATE OR REPLACE cannot change a return type, so drop the old signature.
+DROP FUNCTION IF EXISTS public.create_invitation(UUID, TEXT, TEXT, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.create_invitation(
   p_family_id      UUID,
   p_email          TEXT,

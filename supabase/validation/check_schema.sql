@@ -89,6 +89,28 @@ function_check as (
    and p.pronamespace = 'public'::regnamespace
 ),
 
+-- Return types matter: CREATE OR REPLACE FUNCTION cannot change them.
+function_signature_check as (
+  select
+    'function_signature'::text as section,
+    p.proname::text as item,
+    'INFO'::text as status,
+    (pg_get_function_identity_arguments(p.oid)
+      || ' -> '
+      || pg_get_function_result(p.oid))::text as detail
+  from pg_proc p
+  where p.pronamespace = 'public'::regnamespace
+    and p.proname in (
+      'create_invitation',
+      'validate_invitation',
+      'accept_invitation',
+      'create_family_with_admin',
+      'bootstrap_family_admin',
+      'import_approved_family_data',
+      'create_import_job'
+    )
+),
+
 bucket_check as (
   select
     'bucket'::text as section,
@@ -190,6 +212,7 @@ auth_trigger_check as (
 
 select section, item, status, detail from table_check
 union all select section, item, status, detail from function_check
+union all select section, item, status, detail from function_signature_check
 union all select section, item, status, detail from bucket_check
 union all select section, item, status, detail from column_check
 union all select section, item, status, detail from policy_check
