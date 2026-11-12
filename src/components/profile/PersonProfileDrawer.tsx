@@ -1,5 +1,6 @@
 import React from 'react';
 import { FamilyPerson, Relationship, Memory } from '../../types';
+import { FamilyImage } from '../common/FamilyImage';
 import { 
   X, 
   Edit3, 
@@ -454,7 +455,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
                   key={mem.id}
                   className="rounded-xl border border-stone-200 overflow-hidden bg-stone-50 group hover:shadow-sm transition-all"
                 >
-                  <img
+                  <FamilyImage
                     src={mem.image_url}
                     alt={mem.title}
                     referrerPolicy="no-referrer"

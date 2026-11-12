@@ -7,6 +7,7 @@
  *            simply presents an honest, uncluttered UI for the Viewer role.
  */
 import React from 'react';
+import { FamilyImage } from '../common/FamilyImage';
 import {
   Family,
   FamilyPerson,
@@ -218,7 +219,7 @@ export const ViewerDashboard: React.FC<ViewerDashboardProps> = ({
                     onClick={() => onNavigate('memories')}
                     className="group rounded-xl border border-stone-200 overflow-hidden bg-stone-50 hover:shadow-sm transition-all text-left"
                   >
-                    <img
+                    <FamilyImage
                       src={mem.image_url}
                       alt={mem.title}
                       referrerPolicy="no-referrer"

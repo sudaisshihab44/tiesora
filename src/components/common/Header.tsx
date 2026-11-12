@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Family, UserProfile, AppNotification } from '../../types';
-import { storage } from '../../services/storage';
+import { Family, UserProfile, AppNotification, Role } from '../../types';
+import {
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
+} from '../../services/dataActions';
 import { PWAInstallButton } from './PWAInstallButton';
 import { 
   Bell, 
@@ -20,6 +23,7 @@ interface HeaderProps {
   family: Family;
   families: Family[];
   currentUser: UserProfile;
+  currentRole: Role;
   notifications: AppNotification[];
   currentTab: string;
   onNavigate: (tab: string) => void;
@@ -35,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   family,
   families,
   currentUser,
+  currentRole,
   notifications,
   currentTab,
   onNavigate,
@@ -50,20 +55,27 @@ export const Header: React.FC<HeaderProps> = ({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-  const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
   const isAdminUser = currentRole === 'admin';
 
-  const handleMarkAllRead = () => {
-    storage.markAllNotificationsAsRead();
-    onRefreshNotifications();
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsReadAction(currentUser.id);
+      onRefreshNotifications();
+    } catch (error) {
+      console.error('[Header] mark all read failed:', error);
+    }
   };
 
-  const handleNotificationClick = (notif: AppNotification) => {
-    storage.markNotificationAsRead(notif.id);
-    onRefreshNotifications();
-    setIsNotifOpen(false);
-    if (notif.link_tab) {
-      onNavigate(notif.link_tab);
+  const handleNotificationClick = async (notif: AppNotification) => {
+    try {
+      await markNotificationReadAction(notif.id);
+      onRefreshNotifications();
+      setIsNotifOpen(false);
+      if (notif.link_tab) {
+        onNavigate(notif.link_tab);
+      }
+    } catch (error) {
+      console.error('[Header] mark notification read failed:', error);
     }
   };
 

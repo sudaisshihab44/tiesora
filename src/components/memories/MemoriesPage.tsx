@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Memory, FamilyPerson } from '../../types';
+import { Family, Memory, FamilyPerson, UserProfile } from '../../types';
 import { MemoryUploadModal } from './MemoryUploadModal';
+import { FamilyImage } from '../common/FamilyImage';
 import { 
   Camera, 
   Calendar, 
@@ -15,6 +16,9 @@ import {
 } from 'lucide-react';
 
 interface MemoriesPageProps {
+  family: Family;
+  currentUser: UserProfile;
+  canEdit: boolean;
   memories: Memory[];
   people: FamilyPerson[];
   onSelectPerson: (person: FamilyPerson) => void;
@@ -22,6 +26,9 @@ interface MemoriesPageProps {
 }
 
 export const MemoriesPage: React.FC<MemoriesPageProps> = ({
+  family,
+  currentUser,
+  canEdit,
   memories,
   people,
   onSelectPerson,
@@ -98,13 +105,15 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={() => setIsUploadOpen(true)}
-            className="px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors shadow-xs flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            Add Memory
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors shadow-xs flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              Add Memory
+            </button>
+          )}
         </div>
       </div>
 
@@ -161,12 +170,14 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
           <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
             Try adjusting your filter or upload the first photograph to preserve this moment.
           </p>
-          <button
-            onClick={() => setIsUploadOpen(true)}
-            className="mt-4 px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors"
-          >
-            Upload Memory
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="mt-4 px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors"
+            >
+              Upload Memory
+            </button>
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         /* Grid Gallery View */
@@ -183,7 +194,7 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
                 className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
               >
                 <div className="relative aspect-4/3 w-full bg-stone-100 overflow-hidden">
-                  <img
+                  <FamilyImage
                     src={memory.image_url}
                     alt={memory.title}
                     referrerPolicy="no-referrer"
@@ -249,7 +260,7 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
                   onClick={() => setActiveMemory(memory)}
                   className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5 items-start"
                 >
-                  <img
+                  <FamilyImage
                     src={memory.image_url}
                     alt={memory.title}
                     referrerPolicy="no-referrer"
@@ -318,7 +329,7 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl max-w-2xl w-full overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
             <div className="relative aspect-16/9 w-full bg-black">
-              <img
+              <FamilyImage
                 src={activeMemory.image_url}
                 alt={activeMemory.title}
                 referrerPolicy="no-referrer"
@@ -398,6 +409,8 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
       <MemoryUploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        family={family}
+        currentUser={currentUser}
         people={people}
         onMemoryAdded={() => {
           onRefreshMemories();

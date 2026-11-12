@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { Family, UserProfile } from '../../types';
+import {
+  Family,
+  FamilyEvent,
+  FamilyPerson,
+  Memory,
+  Relationship,
+} from '../../types';
 import { storage } from '../../services/storage';
+import { isSupabaseConfigured } from '../../services/supabase';
+import { updateFamilyAction } from '../../services/dataActions';
 import { exportToGEDCOM } from '../../utils/gedcom';
 import { runRelationshipTestSuite, TestResult } from '../../utils/relationshipEngine.test';
 import { 
@@ -23,11 +31,21 @@ import {
 
 interface SettingsPageProps {
   family: Family;
+  people: FamilyPerson[];
+  relationships: Relationship[];
+  memories: Memory[];
+  events: FamilyEvent[];
+  canEdit: boolean;
   onRefresh: () => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
   family,
+  people,
+  relationships,
+  memories,
+  events,
+  canEdit,
   onRefresh,
 }) => {
   const [name, setName] = useState(family.name);
@@ -41,22 +59,44 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [importPreview, setImportPreview] = useState<any | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const currentUser = storage.getCurrentUser();
-
-  const handleSaveFamily = (e: React.FormEvent) => {
+  const handleSaveFamily = async (e: React.FormEvent) => {
     e.preventDefault();
-    storage.updateFamily(family.id, {
-      name: name.trim(),
-      description: description.trim() || undefined,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
-    onRefresh();
+    if (!canEdit) return;
+
+    setSaveError(null);
+
+    try {
+      await updateFamilyAction(family.id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+      onRefresh();
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : 'Could not save family settings.',
+      );
+    }
   };
 
   const handleExportJSON = () => {
-    const jsonStr = storage.exportFullFamilyJSON(family.id);
+    const jsonStr = JSON.stringify(
+      {
+        app: 'Tiesora',
+        version: '1.0.0',
+        exported_at: new Date().toISOString(),
+        family,
+        people,
+        relationships,
+        memories,
+        events,
+      },
+      null,
+      2,
+    );
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -100,6 +140,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const handleExecuteRestore = (mode: 'restore' | 'import_as_new') => {
+    if (isSupabaseConfigured) {
+      setImportError(
+        'Bulk JSON restore is disabled while Supabase is the source of truth. Use the PDF import pipeline for real data.',
+      );
+      return;
+    }
     if (!importFileContent) return;
 
     if (mode === 'restore') {
@@ -124,6 +170,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const handleResetData = () => {
+    if (isSupabaseConfigured) return;
     if (window.confirm('Reset all family records to the pristine 4-generation demo dataset? Any local changes will be replaced.')) {
       storage.resetToSampleData();
       onRefresh();
@@ -172,21 +219,28 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
           </div>
           <div>
             <h3 className="text-sm font-bold text-emerald-950">
-              Active Storage Adapter: Local Persistent Engine
+              Active Storage Adapter:{' '}
+              {isSupabaseConfigured
+                ? 'Supabase PostgreSQL'
+                : 'Local Persistent Engine'}
             </h3>
             <p className="text-xs text-emerald-900/80 mt-1 leading-relaxed">
-              Your modifications are persisted locally in your browser. All models strictly follow the normalized 11-table schema and are 100% compatible with Supabase PostgreSQL.
+              {isSupabaseConfigured
+                ? 'Family records are stored in Supabase with row-level security. localStorage is only used for session and UI preferences.'
+                : 'Your modifications are persisted locally in your browser. All models follow the normalized 11-table schema and are compatible with Supabase PostgreSQL.'}
             </p>
           </div>
         </div>
 
-        <button
-          onClick={handleResetData}
-          className="px-3.5 py-2 border border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Reset Demo Data
-        </button>
+        {!isSupabaseConfigured && (
+          <button
+            onClick={handleResetData}
+            className="px-3.5 py-2 border border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Reset Demo Data
+          </button>
+        )}
       </div>
 
       {/* Family Details Form */}
@@ -220,12 +274,19 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            {savedSuccess ? (
-              <span className="text-emerald-800 font-semibold flex items-center gap-1 text-xs">
-                <Check className="w-4 h-4" />
-                Family settings saved!
-              </span>
-            ) : <span />}
+            <div>
+              {savedSuccess && (
+                <span className="text-emerald-800 font-semibold flex items-center gap-1 text-xs">
+                  <Check className="w-4 h-4" />
+                  Family settings saved!
+                </span>
+              )}
+              {saveError && (
+                <span className="text-rose-600 font-semibold text-xs">
+                  {saveError}
+                </span>
+              )}
+            </div>
 
             <button
               type="submit"
@@ -248,11 +309,11 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-stone-500 font-medium bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
-            <span>{storage.getPeople(family.id).length} People</span>
+            <span>{people.length} People</span>
             <span>·</span>
-            <span>{storage.getRelationships(family.id).length} Relationships</span>
+            <span>{relationships.length} Relationships</span>
             <span>·</span>
-            <span>{storage.getMemories(family.id).length} Memories</span>
+            <span>{memories.length} Memories</span>
           </div>
         </div>
 
@@ -267,8 +328,6 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
 
           <button
             onClick={() => {
-              const people = storage.getPeople(family.id);
-              const relationships = storage.getRelationships(family.id);
               const gedcomStr = exportToGEDCOM(people, relationships, family);
               const blob = new Blob([gedcomStr], { type: 'text/plain' });
               const url = URL.createObjectURL(blob);
@@ -297,6 +356,13 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
             Restore previously exported Tiesora JSON backups. You can restore into your current family or import as a new tree.
           </p>
         </div>
+
+        {isSupabaseConfigured && (
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+            Bulk JSON restore/overwrite is disabled while Supabase is the source of
+            truth. Real data will be imported through the PDF import pipeline.
+          </div>
+        )}
 
         {importSuccessMsg && (
           <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2.5">

@@ -1,8 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Family, FamilyMembership, Role, UserProfile } from '../../types';
-import { storage } from '../../services/storage';
-import { createInvitation } from '../../services/auth';
+import {
+  createInvitationAction,
+  revokeMembershipAction,
+  updateMemberRoleAction,
+} from '../../services/dataActions';
 import { isSupabaseConfigured } from '../../services/supabase';
+import { storage } from '../../services/storage';
 import {
   Shield, UserPlus, UserCheck, Mail, Clock, Check, Copy,
   MoreHorizontal, AlertTriangle, Loader2, Ban, RefreshCw, Send,
@@ -12,6 +16,7 @@ interface UserManagementPageProps {
   family: Family;
   memberships: FamilyMembership[];
   currentUser: UserProfile;
+  currentRole: Role;
   onRefresh: () => void;
 }
 
@@ -21,6 +26,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   family,
   memberships,
   currentUser,
+  currentRole,
   onRefresh,
 }) => {
   const [activeTab, setActiveTab]       = useState<Tab>('active');
@@ -36,7 +42,6 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   const [resendLinks, setResendLinks]   = useState<Record<string, string>>({});
   const [resendCopied, setResendCopied] = useState<Record<string, boolean>>({});
 
-  const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
   const isAdmin = currentRole === 'admin';
 
   const activeMembers  = useMemo(() => memberships.filter(m => m.status === 'active'), [memberships]);
@@ -67,49 +72,26 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
 
     setInviteLoading(true);
     try {
-      // ── Write the invitation to Supabase (not localStorage) ────────────────
-      // createInvitation() calls the create_invitation SECURITY DEFINER RPC
-      // which generates a pgcrypto token server-side and inserts the row.
-      // In demo mode it falls back to localStorage.
-      const result = await createInvitation(
+      const token = await createInvitationAction(
         family.id,
         inviteEmail.trim(),
         inviteRole,
         7, // 7-day expiry
       );
 
-      if (!result.ok || !result.token) {
-        setInviteError(result.error ?? 'Could not create invitation. Please try again.');
-        return;
-      }
-
-      const token = result.token;
-
-      // Also write to localStorage so the Invited Members tab shows it
-      // (localStorage is the local display layer; Supabase is the truth)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      // Demo mode keeps an invited membership for the local members tab.
+      // Supabase stores the invitation in the invitations table; Phase 4
+      // wires that list into the UI.
       if (!isSupabaseConfigured) {
-        // Already written by createInvitation() in demo mode — skip duplicate
-      } else {
-        storage.addInvitation({
+        storage.addMembership({
           family_id: family.id,
-          email: inviteEmail.trim(),
+          user_id: `usr_invited_${token.substring(0, 12)}`,
+          user_email: inviteEmail.trim(),
+          user_name: inviteEmail.split('@')[0],
           role: inviteRole,
-          token,
-          expires_at: expiresAt.toISOString(),
-          created_by: currentUser.id,
+          status: 'invited',
         });
       }
-
-      storage.addMembership({
-        family_id: family.id,
-        user_id: `usr_invited_${token.substring(0, 12)}`,
-        user_email: inviteEmail.trim(),
-        user_name: inviteEmail.split('@')[0],
-        role: inviteRole,
-        status: 'invited',
-      });
 
       // Build the link from the current origin (not hardcoded localhost)
       const appOrigin = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '')
@@ -117,6 +99,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
       const link = `${appOrigin}/#invite=${token}`;
       setGeneratedLink(link);
       onRefresh();
+    } catch (error) {
+      setInviteError(
+        error instanceof Error
+          ? error.message
+          : 'Could not create invitation. Please try again.',
+      );
     } finally {
       setInviteLoading(false);
     }
@@ -138,33 +126,57 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   };
 
   // ── Role change ─────────────────────────────────────────────────────────────
-  const handleRoleChange = (mem: FamilyMembership, newRole: Role) => {
+  const handleRoleChange = async (mem: FamilyMembership, newRole: Role) => {
     setRoleError(null);
     try {
-      storage.updateMemberRole(mem.id, newRole);
+      await updateMemberRoleAction(mem.id, newRole);
       onRefresh();
-    } catch (err: any) {
-      setRoleError({ id: mem.id, msg: err.message ?? 'Could not change role.' });
+    } catch (err) {
+      setRoleError({
+        id: mem.id,
+        msg: err instanceof Error ? err.message : 'Could not change role.',
+      });
     }
   };
 
   // ── Revoke ──────────────────────────────────────────────────────────────────
-  const handleRevoke = (mem: FamilyMembership) => {
+  const handleRevoke = async (mem: FamilyMembership) => {
     setRevokeError(null);
-    const result = storage.revokeMembership(mem.id);
+    const result = await revokeMembershipAction(mem.id);
     if (!result.success) {
-      setRevokeError({ id: mem.id, msg: result.error ?? 'Could not revoke access.' });
+      setRevokeError({
+        id: mem.id,
+        msg: result.error ?? 'Could not revoke access.',
+      });
     } else {
       onRefresh();
     }
   };
 
   // ── Resend invite ────────────────────────────────────────────────────────────
-  const handleResend = (mem: FamilyMembership) => {
-    const link = storage.resendInvitation(mem.id);
-    if (link) {
+  const handleResend = async (mem: FamilyMembership) => {
+    try {
+      const token = await createInvitationAction(
+        family.id,
+        mem.user_email,
+        mem.role,
+        7,
+      );
+      const appOrigin =
+        (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ||
+        window.location.origin;
+      const link = `${appOrigin}/#invite=${token}`;
       setResendLinks(prev => ({ ...prev, [mem.id]: link }));
       onRefresh();
+    } catch (error) {
+      console.error('[UserManagementPage] resend failed:', error);
+      setRoleError({
+        id: mem.id,
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Could not regenerate the invitation.',
+      });
     }
   };
 

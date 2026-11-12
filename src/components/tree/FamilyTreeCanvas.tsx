@@ -17,6 +17,7 @@ interface FamilyTreeCanvasProps {
   familyId: string;
   familyName: string;
   userIsAdmin?: boolean;
+  onRefresh: () => void;
 }
 
 export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
@@ -30,6 +31,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   familyId,
   familyName,
   userIsAdmin = false,
+  onRefresh,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -301,8 +303,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           onImportComplete={() => {
             console.log('PDF import completed successfully');
             setShowImportModal(false);
-            // Trigger data reload if needed
-            // You can add a callback here to refresh the tree
+            onRefresh();
           }}
         />
       )}

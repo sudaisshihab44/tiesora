@@ -4,9 +4,14 @@ import {
   ChangeRequest, 
   AuditLog, 
   Role, 
-  Family 
+  Family,
+  UserProfile,
 } from '../../types';
-import { storage } from '../../services/storage';
+import {
+  reviewChangeRequestAction,
+  updateFamilyAction,
+  updateMemberRoleAction,
+} from '../../services/dataActions';
 import { InviteModal } from './InviteModal';
 import { 
   Shield, 
@@ -23,6 +28,8 @@ import {
 
 interface CollaborationPageProps {
   family: Family;
+  currentUser: UserProfile;
+  currentRole: Role;
   memberships: FamilyMembership[];
   changeRequests: ChangeRequest[];
   auditLogs: AuditLog[];
@@ -31,6 +38,8 @@ interface CollaborationPageProps {
 
 export const CollaborationPage: React.FC<CollaborationPageProps> = ({
   family,
+  currentUser,
+  currentRole,
   memberships,
   changeRequests,
   auditLogs,
@@ -40,9 +49,8 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<{ [id: string]: string }>({});
   const [privacySaved, setPrivacySaved] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const currentUser = storage.getCurrentUser();
-  const currentRole = storage.getUserRoleInFamily(currentUser.id, family.id);
   const canManage = currentRole === 'admin';
   const [privacySettings, setPrivacySettings] = useState(family.privacy_settings || {
     hideLivingDates: false,
@@ -57,21 +65,51 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
     setPrivacySaved(false);
   };
 
-  const handleSavePrivacy = () => {
-    storage.updateFamily(family.id, { privacy_settings: privacySettings });
-    onRefresh();
-    setPrivacySaved(true);
-    setTimeout(() => setPrivacySaved(false), 2500);
+  const handleSavePrivacy = async () => {
+    setActionError(null);
+    try {
+      await updateFamilyAction(family.id, {
+        privacy_settings: privacySettings,
+      });
+      onRefresh();
+      setPrivacySaved(true);
+      setTimeout(() => setPrivacySaved(false), 2500);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'Could not save privacy settings.',
+      );
+    }
   };
 
-  const handleRoleChange = (membershipId: string, newRole: Role) => {
-    storage.updateMemberRole(membershipId, newRole);
-    onRefresh();
+  const handleRoleChange = async (membershipId: string, newRole: Role) => {
+    setActionError(null);
+    try {
+      await updateMemberRoleAction(membershipId, newRole);
+      onRefresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'Could not change the role.',
+      );
+    }
   };
 
-  const handleReview = (id: string, decision: 'approved' | 'rejected') => {
-    storage.reviewChangeRequest(id, decision, reviewNotes[id]);
-    onRefresh();
+  const handleReview = async (id: string, decision: 'approved' | 'rejected') => {
+    setActionError(null);
+    try {
+      await reviewChangeRequestAction(
+        id,
+        decision,
+        reviewNotes[id],
+        currentUser,
+      );
+      onRefresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Could not review the change request.',
+      );
+    }
   };
 
   const pendingRequests = changeRequests.filter(cr => cr.status === 'pending');
@@ -101,6 +139,13 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
           Invite Relative
         </button>
       </div>
+
+      {actionError && (
+        <div className="flex items-start gap-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200 text-xs font-medium pb-px overflow-x-auto">
@@ -435,6 +480,8 @@ export const CollaborationPage: React.FC<CollaborationPageProps> = ({
       {/* Invite Modal */}
       <InviteModal
         isOpen={isInviteOpen}
+        family={family}
+        currentUser={currentUser}
         onClose={() => setIsInviteOpen(false)}
         onInviteSent={() => onRefresh()}
       />

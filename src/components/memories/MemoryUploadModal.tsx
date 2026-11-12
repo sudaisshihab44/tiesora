@@ -1,11 +1,16 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { FamilyPerson, Memory } from '../../types';
-import { storage } from '../../services/storage';
+import { Family, FamilyPerson, Memory, UserProfile } from '../../types';
+import {
+  createMemoryAction,
+  uploadFamilyPhotoAction,
+} from '../../services/dataActions';
 import { X, Upload, Calendar, MapPin, Tag, Image as ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
 
 interface MemoryUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  family: Family;
+  currentUser: UserProfile;
   people: FamilyPerson[];
   onMemoryAdded: (memory: Memory) => void;
 }
@@ -13,6 +18,8 @@ interface MemoryUploadModalProps {
 export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
   isOpen,
   onClose,
+  family,
+  currentUser,
   people,
   onMemoryAdded,
 }) => {
@@ -26,6 +33,8 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -55,6 +64,7 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
     }
     setUploading(true);
     setError(null);
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
       setImageUrl(e.target?.result as string);
@@ -73,7 +83,7 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
     if (file) handleFileSelect(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -87,28 +97,42 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
       return;
     }
 
-    const family = storage.getCurrentFamily();
-    const currentUser = storage.getCurrentUser();
+    setSaving(true);
 
-    const newMem = storage.addMemory({
-      family_id: family.id,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      memory_date: memoryDate || undefined,
-      location: location.trim() || undefined,
-      image_url: imageUrl.trim(),
-      tagged_person_ids: taggedPersonIds,
-      album: album.trim() || 'Family Archives',
-      is_private: isPrivate,
-      created_by: currentUser.id,
-      created_by_name: currentUser.display_name,
-    });
+    try {
+      // New uploads go to private Storage; external URLs pass through.
+      const imageValue = selectedFile
+        ? await uploadFamilyPhotoAction(selectedFile, family.id)
+        : imageUrl.trim();
 
-    onMemoryAdded(newMem);
-    // Reset form
-    setTitle(''); setDescription(''); setMemoryDate(''); setLocation('');
-    setImageUrl(''); setAlbum('Family Archives'); setTaggedPersonIds([]); setIsPrivate(false);
-    onClose();
+      const newMem = await createMemoryAction(
+        {
+          family_id: family.id,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          memory_date: memoryDate || undefined,
+          location: location.trim() || undefined,
+          image_url: imageValue,
+          tagged_person_ids: taggedPersonIds,
+          album: album.trim() || 'Family Archives',
+          is_private: isPrivate,
+        },
+        currentUser,
+      );
+
+      onMemoryAdded(newMem);
+      // Reset form
+      setTitle(''); setDescription(''); setMemoryDate(''); setLocation('');
+      setImageUrl(''); setAlbum('Family Archives'); setTaggedPersonIds([]);
+      setIsPrivate(false); setSelectedFile(null);
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[MemoryUploadModal] save failed:', err);
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -176,7 +200,7 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
                   <img src={imageUrl} alt="Preview" referrerPolicy="no-referrer" className="w-full h-32 rounded-lg object-cover" />
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setImageUrl(''); }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setImageUrl(''); }}
                     className="text-[11px] text-rose-600 hover:underline"
                   >
                     Remove photo
@@ -209,7 +233,7 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
                   <button
                     key={preset.label}
                     type="button"
-                    onClick={() => setImageUrl(preset.url)}
+                    onClick={() => { setSelectedFile(null); setImageUrl(preset.url); }}
                     className="px-2 py-0.5 bg-stone-100 hover:bg-emerald-50 hover:text-emerald-900 rounded text-[10px] text-stone-600 transition-colors"
                   >
                     {preset.label}
@@ -312,8 +336,8 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
             <button type="button" onClick={onClose} className="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-100 rounded-xl font-medium">
               Cancel
             </button>
-            <button type="submit" disabled={uploading} className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs">
-              Save Memory
+            <button type="submit" disabled={uploading || saving} className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs">
+              {saving ? 'Saving…' : 'Save Memory'}
             </button>
           </div>
         </form>

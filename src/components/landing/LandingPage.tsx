@@ -18,6 +18,7 @@ interface LandingPageProps {
   onExploreDemo: () => void;
   onSignIn: () => void;
   onSignUp: () => void;
+  demoEnabled?: boolean;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -25,6 +26,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onExploreDemo,
   onSignIn,
   onSignUp,
+  demoEnabled = true,
 }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -118,12 +120,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             Build Your Family Tree
             <ArrowRight className="w-4 h-4" />
           </button>
-          <button
-            onClick={onExploreDemo}
-            className="px-6 py-3.5 bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-semibold rounded-xl text-sm transition-all"
-          >
-            Explore Live Demo Tree
-          </button>
+          {demoEnabled && (
+            <button
+              onClick={onExploreDemo}
+              className="px-6 py-3.5 bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-semibold rounded-xl text-sm transition-all"
+            >
+              Explore Live Demo Tree
+            </button>
+          )}
         </div>
 
         {/* Tree Preview Showcase Card */}
@@ -137,12 +141,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <p className="text-xs text-stone-400">4 Generations · 16 Members · Interactive Zoom & Pan</p>
                 </div>
               </div>
-              <button
-                onClick={onExploreDemo}
-                className="px-3 py-1.5 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 rounded-lg text-xs font-semibold transition-colors"
-              >
-                Launch Workspace ➔
-              </button>
+              {demoEnabled && (
+                <button
+                  onClick={onExploreDemo}
+                  className="px-3 py-1.5 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  Launch Workspace ➔
+                </button>
+              )}
             </div>
 
             {/* Mock interactive branch preview */}

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { storage } from './services/storage';
 import { getSessionUser, onAuthStateChange, signOut, getRoleFromDB } from './services/auth';
 import { isSupabaseConfigured } from './services/supabase';
+import * as db from './services/db';
+import { deletePersonAction, deleteRelationshipAction } from './services/dataActions';
 import {
   Family,
   FamilyPerson,
@@ -95,21 +97,109 @@ export default function App() {
   const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
   const [auditLogs,      setAuditLogs]      = useState<AuditLog[]>([]);
 
-  const refreshAll = useCallback(() => {
-    const user    = storage.getCurrentUser();
-    const fams    = storage.getFamilies();
-    const currFam = storage.getCurrentFamily();
+  // Data-loading state for the Supabase-backed mode. Demo mode loads
+  // synchronously from localStorage.
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoaded,  setDataLoaded]  = useState(false);
+  const [dataError,   setDataError]   = useState<string | null>(null);
+
+  const refreshAll = useCallback(async () => {
+    const user = storage.getCurrentUser();
     setCurrentUser(user);
-    setFamilies(fams);
-    setCurrentFamily(currFam);
-    setPeople(storage.getPeople(currFam.id));
-    setRelationships(storage.getRelationships(currFam.id));
-    setMemories(storage.getMemories(currFam.id));
-    setEvents(storage.getEvents(currFam.id));
-    setMemberships(storage.getMemberships(currFam.id));
-    setChangeRequests(storage.getChangeRequests(currFam.id));
-    setNotifications(storage.getNotifications(user.id));
-    setAuditLogs(storage.getAuditLogs(currFam.id));
+
+    // ── Demo / offline mode ────────────────────────────────────────────────
+    if (!isSupabaseConfigured) {
+      const fams = storage.getFamilies();
+      const currFam = storage.getCurrentFamily();
+      setFamilies(fams);
+      setCurrentFamily(currFam);
+      setPeople(storage.getPeople(currFam.id));
+      setRelationships(storage.getRelationships(currFam.id));
+      setMemories(storage.getMemories(currFam.id));
+      setEvents(storage.getEvents(currFam.id));
+      setMemberships(storage.getMemberships(currFam.id));
+      setChangeRequests(storage.getChangeRequests(currFam.id));
+      setNotifications(storage.getNotifications(user.id));
+      setAuditLogs(storage.getAuditLogs(currFam.id));
+      setDataError(null);
+      setDataLoaded(true);
+      return;
+    }
+
+    // ── Supabase source of truth ──────────────────────────────────────────
+    if (!user?.id) {
+      setDataLoaded(true);
+      return;
+    }
+
+    setDataLoading(true);
+    setDataError(null);
+
+    try {
+      const fams = await db.listFamilies();
+      const storedId = storage.getCurrentFamilyId();
+      const active = fams.find((f) => f.id === storedId) ?? fams[0];
+
+      if (!active) {
+        setFamilies([]);
+        setPeople([]);
+        setRelationships([]);
+        setMemories([]);
+        setEvents([]);
+        setMemberships([]);
+        setChangeRequests([]);
+        setNotifications([]);
+        setAuditLogs([]);
+        setDataLoaded(true);
+        return;
+      }
+
+      if (storedId !== active.id) storage.setCurrentFamilyId(active.id);
+
+      const [
+        people,
+        relationships,
+        memories,
+        events,
+        memberships,
+        changeRequests,
+        notifications,
+        auditLogs,
+        myMemberships,
+      ] = await Promise.all([
+        db.listPeople(active.id),
+        db.listRelationships(active.id),
+        db.listMemories(active.id),
+        db.listEvents(active.id),
+        db.listMemberships(active.id),
+        db.listChangeRequests(active.id),
+        db.listNotifications(user.id),
+        db.listAuditLogs(active.id),
+        db.getMyMemberships(user.id),
+      ]);
+
+      setFamilies(fams);
+      setCurrentFamily(active);
+      setPeople(people);
+      setRelationships(relationships);
+      setMemories(memories);
+      setEvents(events);
+      setMemberships(memberships);
+      setChangeRequests(changeRequests);
+      setNotifications(notifications);
+      setAuditLogs(auditLogs);
+
+      const membership = myMemberships.find((m) => m.family_id === active.id);
+      setVerifiedRole(membership?.role ?? 'viewer');
+      setVerifiedFamilyId(active.id);
+      setDataLoaded(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[App] Failed to load Supabase data:', error);
+      setDataError(message);
+    } finally {
+      setDataLoading(false);
+    }
   }, []);
 
   const applyVerifiedRole = useCallback((role: Role, familyId: string) => {
@@ -122,14 +212,21 @@ export default function App() {
   const enterApp = useCallback(async (user: UserProfile) => {
     storage.updateCurrentUser(user);
     setCurrentUser(user);
-    const dbRole = await getRoleFromDB(user.id);
-    if (dbRole) {
-      applyVerifiedRole(dbRole.role, dbRole.familyId);
-    } else {
-      const fam = storage.getCurrentFamily();
-      applyVerifiedRole('viewer', fam.id);
+
+    if (!isSupabaseConfigured) {
+      const dbRole = await getRoleFromDB(user.id);
+      if (dbRole) {
+        applyVerifiedRole(dbRole.role, dbRole.familyId);
+      } else {
+        const fam = storage.getCurrentFamily();
+        applyVerifiedRole('viewer', fam.id);
+      }
     }
-    refreshAll();
+
+    // Supabase mode: refreshAll selects the stored family (which onboarding
+    // just set) and derives the role from its membership. This avoids the
+    // "first membership wins" problem when a user belongs to several families.
+    await refreshAll();
     setAuthView('app');
     setCurrentTab('dashboard');
   }, [applyVerifiedRole, refreshAll]);
@@ -180,7 +277,7 @@ export default function App() {
               setInviteToken(inviteMatch[1]);
               setAuthView('join-family');
             } else {
-              refreshAll();
+              void refreshAll();
               setAuthView('app');
             }
           } else {
@@ -219,7 +316,7 @@ export default function App() {
           if (dbRole) {
             applyVerifiedRole(dbRole.role, dbRole.familyId);
             setAuthView(v => v === 'reset-password' ? v : 'app');
-            refreshAll();
+            void refreshAll();
           } else {
             // New user who just confirmed their email — send to onboarding
             setAuthView('onboarding-choice');
@@ -236,10 +333,21 @@ export default function App() {
     return () => { cancelled = true; unsubAuth(); };
   }, [refreshAll, applyVerifiedRole, enterApp]);
 
+  // Demo mode only: localStorage is the source of truth there.
   useEffect(() => {
-    const unsub = storage.subscribe(() => refreshAll());
+    if (isSupabaseConfigured) return;
+    const unsub = storage.subscribe(() => {
+      void refreshAll();
+    });
     return unsub;
   }, [refreshAll]);
+
+  // Entering the app (or changing the signed-in user) loads Supabase data.
+  useEffect(() => {
+    if (authView === 'app' && currentUser) {
+      void refreshAll();
+    }
+  }, [authView, currentUser?.id, refreshAll]);
 
   // ── Tab resolution — redirect viewers off admin-only tabs ─────────────────
   const resolvedTab = (() => {
@@ -274,9 +382,23 @@ export default function App() {
     if (firstNode) setSelectedPerson(firstNode);
   };
 
-  const handleSwitchFamily = (familyId: string) => {
+  const handleSwitchFamily = async (familyId: string) => {
     storage.setCurrentFamilyId(familyId);
-    refreshAll();
+
+    if (!isSupabaseConfigured && currentUser) {
+      const role = normalizeRole(
+        storage.getUserRoleInFamily(currentUser.id, familyId),
+      );
+      applyVerifiedRole(role, familyId);
+    } else if (currentUser) {
+      const membership = await db.getMembershipForFamily(
+        currentUser.id,
+        familyId,
+      );
+      applyVerifiedRole(membership?.role ?? 'viewer', familyId);
+    }
+
+    await refreshAll();
   };
 
   const handleSignOut = async () => {
@@ -286,6 +408,8 @@ export default function App() {
     setVerifiedRole('viewer');
     setVerifiedFamilyId('');
     setInviteToken('');
+    setDataLoaded(false);
+    setDataError(null);
   };
 
   // ── Loading spinner ───────────────────────────────────────────────────────
@@ -307,7 +431,7 @@ export default function App() {
         onStartBuilding={() => setAuthView('signup')}
         onExploreDemo={() => {
           storage.resetToSampleData();
-          refreshAll();
+          void refreshAll();
           const fam  = storage.getCurrentFamily();
           const user = storage.getCurrentUser();
           const role = normalizeRole(storage.getUserRoleInFamily(user.id, fam.id));
@@ -316,6 +440,7 @@ export default function App() {
         }}
         onSignIn={() => setAuthView('signin')}
         onSignUp={() => setAuthView('signup')}
+        demoEnabled={!isSupabaseConfigured}
       />
     );
   }
@@ -328,7 +453,7 @@ export default function App() {
             storage.updateCurrentUser(user);
             setCurrentUser(user);
             applyVerifiedRole(role, familyId);
-            refreshAll();
+            void refreshAll();
             setAuthView('app');
             setCurrentTab('dashboard');
           }}
@@ -431,7 +556,7 @@ export default function App() {
     return (
       <ResetPasswordPage
         onSuccess={async () => {
-          refreshAll();
+          await refreshAll();
           setAuthView('app');
         }}
         onGoSignIn={() => setAuthView('signin')}
@@ -450,15 +575,66 @@ export default function App() {
     );
   }
 
+  // Supabase mode: do not render the shell with stale/sample data.
+  if (authView === 'app' && isSupabaseConfigured && !dataLoaded) {
+    if (dataError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 gap-4 p-6 text-center">
+          <p className="text-sm font-semibold text-stone-800">
+            Could not load your family data
+          </p>
+          <p className="text-xs text-stone-500 max-w-md break-words">
+            {dataError}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => void refreshAll()}
+              className="px-4 py-2 rounded-xl bg-emerald-800 text-white text-xs font-semibold"
+            >
+              Retry
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-semibold"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 gap-3">
+        <div className="w-8 h-8 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-stone-500">Loading your family…</p>
+      </div>
+    );
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // AUTHENTICATED APP SHELL
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col font-sans text-stone-900 antialiased overflow-x-hidden">
+      {dataError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between gap-4">
+          <span className="truncate">
+            Could not refresh family data: {dataError}
+          </span>
+          <button
+            onClick={() => void refreshAll()}
+            className="font-semibold underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <Header
         family={currentFamily}
         families={families}
         currentUser={currentUser}
+        currentRole={verifiedRole}
         notifications={notifications}
         currentTab={resolvedTab}
         onNavigate={setCurrentTab}
@@ -523,6 +699,7 @@ export default function App() {
               familyId={currentFamily.id}
               familyName={currentFamily.name}
               userIsAdmin={isAdmin}
+              onRefresh={refreshAll}
             />
           )}
 
@@ -539,6 +716,9 @@ export default function App() {
 
           {resolvedTab === 'memories' && (
             <MemoriesPage
+              family={currentFamily}
+              currentUser={currentUser}
+              canEdit={isAdmin}
               memories={memories}
               people={people}
               onSelectPerson={handleSelectPerson}
@@ -548,6 +728,9 @@ export default function App() {
 
           {resolvedTab === 'events' && (
             <EventsPage
+              family={currentFamily}
+              currentUser={currentUser}
+              canEdit={isAdmin}
               events={events}
               people={people}
               onSelectPerson={handleSelectPerson}
@@ -561,12 +744,15 @@ export default function App() {
               family={currentFamily}
               memberships={memberships}
               currentUser={currentUser}
+              currentRole={verifiedRole}
               onRefresh={refreshAll}
             />
           )}
           {resolvedTab === 'collaboration' && isAdmin && (
             <CollaborationPage
               family={currentFamily}
+              currentUser={currentUser}
+              currentRole={verifiedRole}
               memberships={memberships}
               changeRequests={changeRequests}
               auditLogs={auditLogs}
@@ -574,7 +760,15 @@ export default function App() {
             />
           )}
           {resolvedTab === 'settings' && isAdmin && (
-            <SettingsPage family={currentFamily} onRefresh={refreshAll} />
+            <SettingsPage
+              family={currentFamily}
+              people={people}
+              relationships={relationships}
+              memories={memories}
+              events={events}
+              canEdit={isAdmin}
+              onRefresh={refreshAll}
+            />
           )}
 
           {/* Access-denied fallback */}
@@ -616,25 +810,40 @@ export default function App() {
         onEditPerson={isAdmin ? (p) => setAddRelativeState({ isOpen: true, editPerson: p }) : undefined}
         onAddRelative={isAdmin ? (p) => setAddRelativeState({ isOpen: true, targetPerson: p }) : undefined}
         onExploreRelationship={handleExploreRelationship}
-        onDeletePerson={isAdmin ? (id) => {
-          storage.deletePerson(id);
-          refreshAll();
-          setSelectedPerson(null);
+        onDeletePerson={isAdmin ? async (id) => {
+          try {
+            await deletePersonAction(id);
+            await refreshAll();
+            setSelectedPerson(null);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('[App] Failed to delete person:', error);
+            setDataError(message);
+          }
         } : undefined}
-        onDeleteRelationship={isAdmin ? (relId) => {
-          storage.deleteRelationship(relId);
-          refreshAll();
+        onDeleteRelationship={isAdmin ? async (relId) => {
+          try {
+            await deleteRelationshipAction(relId);
+            await refreshAll();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('[App] Failed to delete relationship:', error);
+            setDataError(message);
+          }
         } : undefined}
       />
 
       {isAdmin && (
         <AddRelativeDialog
           isOpen={addRelativeState.isOpen}
+          familyId={currentFamily.id}
+          currentUser={currentUser}
           targetPerson={addRelativeState.targetPerson}
           editPerson={addRelativeState.editPerson}
           people={people}
+          relationships={relationships}
           onClose={() => setAddRelativeState({ isOpen: false })}
-          onSaved={(person) => { refreshAll(); setSelectedPerson(person); }}
+          onSaved={(person) => { void refreshAll(); setSelectedPerson(person); }}
         />
       )}
 
@@ -643,11 +852,13 @@ export default function App() {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onComplete={async () => {
-          if (currentUser && isSupabaseConfigured) {
+          // Demo mode still resolves the role from local storage. In Supabase
+          // mode, refreshAll uses the family that onboarding just created.
+          if (currentUser && !isSupabaseConfigured) {
             const dbRole = await getRoleFromDB(currentUser.id);
             if (dbRole) applyVerifiedRole(dbRole.role, dbRole.familyId);
           }
-          refreshAll();
+          await refreshAll();
           setIsOnboardingOpen(false);
           setCurrentTab('tree');
         }}

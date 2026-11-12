@@ -5,9 +5,14 @@ import {
   RelationshipType, 
   Gender, 
   LivingStatus, 
-  DatePrecision 
+  DatePrecision,
+  UserProfile,
 } from '../../types';
-import { storage } from '../../services/storage';
+import {
+  createPersonAction,
+  createRelationshipAction,
+  updatePersonAction,
+} from '../../services/dataActions';
 import { 
   X, 
   UserPlus, 
@@ -23,18 +28,24 @@ import {
 interface AddRelativeDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  familyId: string;
+  currentUser: UserProfile;
   targetPerson?: FamilyPerson; // When adding relative TO someone
   editPerson?: FamilyPerson;   // When editing an existing person
   people: FamilyPerson[];
+  relationships: Relationship[];
   onSaved: (person: FamilyPerson) => void;
 }
 
 export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
   isOpen,
   onClose,
+  familyId,
+  currentUser,
   targetPerson,
   editPerson,
   people,
+  relationships,
   onSaved,
 }) => {
   const isEditing = Boolean(editPerson);
@@ -61,6 +72,7 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
 
   // Validation & feedback
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<boolean>(false);
 
   // Initialize or reset form
   useEffect(() => {
@@ -97,6 +109,7 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
       setRelationshipNotes('');
     }
     setError(null);
+    setSaving(false);
   }, [editPerson, targetPerson, isOpen]);
 
   // Auto-fill display name if empty when full name changes
@@ -143,7 +156,7 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
     }
   }, [targetPerson, displayName, fullName, connectExistingMode, selectedExistingPersonId, relationshipType, people]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -158,237 +171,307 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
       return;
     }
 
-    const currentFamily = storage.getCurrentFamily();
-    const currentUser = storage.getCurrentUser();
+    setSaving(true);
 
-    if (isEditing && editPerson) {
-      const updated = storage.updatePerson(editPerson.id, {
-        full_name: fullName.trim() || displayName.trim(),
-        display_name: displayName.trim(),
-        gender,
-        living_status: livingStatus,
-        birth_date: birthDate || undefined,
-        birth_place: birthPlace.trim() || undefined,
-        death_date: deathDate || undefined,
-        death_place: deathPlace.trim() || undefined,
-        date_precision: datePrecision,
-        biography: biography.trim() || undefined,
-        avatar_path: avatarPath.trim() || undefined,
-        branch,
-      });
-      onSaved(updated);
-      onClose();
-      return;
-    }
-
-    // Connect existing person mode
-    if (connectExistingMode) {
-      if (!selectedExistingPersonId) {
-        setError('Please select an existing family member to connect.');
-        return;
-      }
-      if (!targetPerson) {
-        setError('Target family member is required to form a relationship.');
+    try {
+      if (isEditing && editPerson) {
+        const updated = await updatePersonAction(editPerson.id, {
+          full_name: fullName.trim() || displayName.trim(),
+          display_name: displayName.trim(),
+          gender,
+          living_status: livingStatus,
+          birth_date: birthDate || undefined,
+          birth_place: birthPlace.trim() || undefined,
+          death_date: deathDate || undefined,
+          death_place: deathPlace.trim() || undefined,
+          date_precision: datePrecision,
+          biography: biography.trim() || undefined,
+          avatar_path: avatarPath.trim() || undefined,
+          branch,
+        });
+        onSaved(updated);
+        onClose();
         return;
       }
 
-      // Add relationship
-      if (relationshipType === 'parent' || relationshipType === 'adoptive_parent' || relationshipType === 'step_parent') {
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: selectedExistingPersonId,
-          target_person_id: targetPerson.id,
-          relationship_type: relationshipType,
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
-      } else if (relationshipType === 'child') {
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: targetPerson.id,
-          target_person_id: selectedExistingPersonId,
-          relationship_type: 'parent',
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
-      } else if (relationshipType === 'sibling') {
-        const existingRels = storage.getRelationships(currentFamily.id);
-        const parentRels = existingRels.filter(r => r.target_person_id === targetPerson.id && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationship_type));
-        if (parentRels.length > 0) {
-          parentRels.forEach(pr => {
-            storage.addRelationship({
-              family_id: currentFamily.id,
-              source_person_id: pr.source_person_id,
+      // Connect existing person mode
+      if (connectExistingMode) {
+        if (!selectedExistingPersonId) {
+          setError('Please select an existing family member to connect.');
+          return;
+        }
+        if (!targetPerson) {
+          setError('Target family member is required to form a relationship.');
+          return;
+        }
+
+        if (
+          relationshipType === 'parent' ||
+          relationshipType === 'adoptive_parent' ||
+          relationshipType === 'step_parent'
+        ) {
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: selectedExistingPersonId,
+              target_person_id: targetPerson.id,
+              relationship_type: relationshipType,
+              relationship_status: 'verified',
+              notes: relationshipNotes.trim() || undefined,
+            },
+            currentUser,
+          );
+        } else if (relationshipType === 'child') {
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: targetPerson.id,
               target_person_id: selectedExistingPersonId,
-              relationship_type: pr.relationship_type,
+              relationship_type: 'parent',
               relationship_status: 'verified',
               notes: relationshipNotes.trim() || undefined,
-              created_by: currentUser.id,
-            });
-          });
+            },
+            currentUser,
+          );
+        } else if (relationshipType === 'sibling') {
+          const parentRels = relationships.filter(
+            (r) =>
+              r.target_person_id === targetPerson.id &&
+              ['parent', 'adoptive_parent', 'step_parent'].includes(
+                r.relationship_type,
+              ),
+          );
+
+          if (parentRels.length > 0) {
+            for (const pr of parentRels) {
+              await createRelationshipAction(
+                {
+                  family_id: familyId,
+                  source_person_id: pr.source_person_id,
+                  target_person_id: selectedExistingPersonId,
+                  relationship_type: pr.relationship_type,
+                  relationship_status: 'verified',
+                  notes: relationshipNotes.trim() || undefined,
+                },
+                currentUser,
+              );
+            }
+          } else {
+            const sharedParent = await createPersonAction(
+              {
+                family_id: familyId,
+                full_name: `Parent of ${targetPerson.display_name}`,
+                display_name: `Parent of ${targetPerson.display_name}`,
+                gender: 'unspecified',
+                living_status: 'unknown',
+                date_precision: 'unknown',
+                generation_level: Math.max(
+                  1,
+                  targetPerson.generation_level - 1,
+                ),
+                branch: targetPerson.branch,
+              },
+              currentUser,
+            );
+
+            await createRelationshipAction(
+              {
+                family_id: familyId,
+                source_person_id: sharedParent.id,
+                target_person_id: targetPerson.id,
+                relationship_type: 'parent',
+                relationship_status: 'verified',
+              },
+              currentUser,
+            );
+            await createRelationshipAction(
+              {
+                family_id: familyId,
+                source_person_id: sharedParent.id,
+                target_person_id: selectedExistingPersonId,
+                relationship_type: 'parent',
+                relationship_status: 'verified',
+              },
+              currentUser,
+            );
+          }
         } else {
-          const sharedParent = storage.addPerson({
-            family_id: currentFamily.id,
-            full_name: `Parent of ${targetPerson.display_name}`,
-            display_name: `Parent of ${targetPerson.display_name}`,
-            gender: 'unspecified',
-            living_status: 'unknown',
-            date_precision: 'unknown',
-            generation_level: Math.max(1, targetPerson.generation_level - 1),
-            branch: targetPerson.branch,
-            created_by: currentUser.id,
-          });
-          storage.addRelationship({
-            family_id: currentFamily.id,
-            source_person_id: sharedParent.id,
-            target_person_id: targetPerson.id,
-            relationship_type: 'parent',
-            relationship_status: 'verified',
-            created_by: currentUser.id,
-          });
-          storage.addRelationship({
-            family_id: currentFamily.id,
-            source_person_id: sharedParent.id,
-            target_person_id: selectedExistingPersonId,
-            relationship_type: 'parent',
-            relationship_status: 'verified',
-            created_by: currentUser.id,
-          });
+          // Spouse / Partner
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: targetPerson.id,
+              target_person_id: selectedExistingPersonId,
+              relationship_type: 'spouse',
+              relationship_status: 'verified',
+              notes: relationshipNotes.trim() || undefined,
+            },
+            currentUser,
+          );
         }
-      } else {
-        // Spouse / Partner
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: targetPerson.id,
-          target_person_id: selectedExistingPersonId,
-          relationship_type: 'spouse',
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
+
+        const connectedPerson = people.find(
+          (p) => p.id === selectedExistingPersonId,
+        );
+        if (connectedPerson) onSaved(connectedPerson);
+        onClose();
+        return;
       }
 
-      const connectedPerson = people.find(p => p.id === selectedExistingPersonId)!;
-      onSaved(connectedPerson);
-      onClose();
-      return;
-    }
-
-    // Calculate generation level
-    let genLevel = targetPerson ? targetPerson.generation_level : 2;
-    if (targetPerson) {
-      if (relationshipType === 'parent' || relationshipType === 'adoptive_parent' || relationshipType === 'step_parent') {
-        genLevel = Math.max(1, targetPerson.generation_level - 1);
-      } else if (relationshipType === 'child') {
-        genLevel = targetPerson.generation_level + 1;
-      } else {
-        genLevel = targetPerson.generation_level;
+      // Calculate generation level
+      let genLevel = targetPerson ? targetPerson.generation_level : 2;
+      if (targetPerson) {
+        if (
+          relationshipType === 'parent' ||
+          relationshipType === 'adoptive_parent' ||
+          relationshipType === 'step_parent'
+        ) {
+          genLevel = Math.max(1, targetPerson.generation_level - 1);
+        } else if (relationshipType === 'child') {
+          genLevel = targetPerson.generation_level + 1;
+        } else {
+          genLevel = targetPerson.generation_level;
+        }
       }
-    }
 
-    // Create new person
-    const newPerson = storage.addPerson({
-      family_id: currentFamily.id,
-      full_name: fullName.trim() || displayName.trim(),
-      display_name: displayName.trim(),
-      gender,
-      living_status: livingStatus,
-      birth_date: birthDate || undefined,
-      birth_place: birthPlace.trim() || undefined,
-      death_date: deathDate || undefined,
-      death_place: deathPlace.trim() || undefined,
-      date_precision: datePrecision,
-      biography: biography.trim() || undefined,
-      avatar_path: avatarPath.trim() || undefined,
-      generation_level: genLevel,
-      branch,
-      created_by: currentUser.id,
-    });
+      // Create new person
+      const newPerson = await createPersonAction(
+        {
+          family_id: familyId,
+          full_name: fullName.trim() || displayName.trim(),
+          display_name: displayName.trim(),
+          gender,
+          living_status: livingStatus,
+          birth_date: birthDate || undefined,
+          birth_place: birthPlace.trim() || undefined,
+          death_date: deathDate || undefined,
+          death_place: deathPlace.trim() || undefined,
+          date_precision: datePrecision,
+          biography: biography.trim() || undefined,
+          avatar_path: avatarPath.trim() || undefined,
+          generation_level: genLevel,
+          branch,
+        },
+        currentUser,
+      );
 
-    // Create relationship if targetPerson exists
-    if (targetPerson) {
-      if (relationshipType === 'parent' || relationshipType === 'adoptive_parent' || relationshipType === 'step_parent') {
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: newPerson.id,
-          target_person_id: targetPerson.id,
-          relationship_type: relationshipType,
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
-      } else if (relationshipType === 'child') {
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: targetPerson.id,
-          target_person_id: newPerson.id,
-          relationship_type: 'parent',
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
-      } else if (relationshipType === 'sibling') {
-        const existingRels = storage.getRelationships(currentFamily.id);
-        const parentRels = existingRels.filter(r => r.target_person_id === targetPerson.id && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationship_type));
-        if (parentRels.length > 0) {
-          parentRels.forEach(pr => {
-            storage.addRelationship({
-              family_id: currentFamily.id,
-              source_person_id: pr.source_person_id,
+      // Create relationship if targetPerson exists
+      if (targetPerson) {
+        if (
+          relationshipType === 'parent' ||
+          relationshipType === 'adoptive_parent' ||
+          relationshipType === 'step_parent'
+        ) {
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: newPerson.id,
+              target_person_id: targetPerson.id,
+              relationship_type: relationshipType,
+              relationship_status: 'verified',
+              notes: relationshipNotes.trim() || undefined,
+            },
+            currentUser,
+          );
+        } else if (relationshipType === 'child') {
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: targetPerson.id,
               target_person_id: newPerson.id,
-              relationship_type: pr.relationship_type,
+              relationship_type: 'parent',
               relationship_status: 'verified',
               notes: relationshipNotes.trim() || undefined,
-              created_by: currentUser.id,
-            });
-          });
-        } else {
-          const sharedParent = storage.addPerson({
-            family_id: currentFamily.id,
-            full_name: `Parent of ${targetPerson.display_name}`,
-            display_name: `Parent of ${targetPerson.display_name}`,
-            gender: 'unspecified',
-            living_status: 'unknown',
-            date_precision: 'unknown',
-            generation_level: Math.max(1, targetPerson.generation_level - 1),
-            branch: targetPerson.branch,
-            created_by: currentUser.id,
-          });
-          storage.addRelationship({
-            family_id: currentFamily.id,
-            source_person_id: sharedParent.id,
-            target_person_id: targetPerson.id,
-            relationship_type: 'parent',
-            relationship_status: 'verified',
-            created_by: currentUser.id,
-          });
-          storage.addRelationship({
-            family_id: currentFamily.id,
-            source_person_id: sharedParent.id,
-            target_person_id: newPerson.id,
-            relationship_type: 'parent',
-            relationship_status: 'verified',
-            created_by: currentUser.id,
-          });
-        }
-      } else {
-        // Spouse
-        storage.addRelationship({
-          family_id: currentFamily.id,
-          source_person_id: targetPerson.id,
-          target_person_id: newPerson.id,
-          relationship_type: 'spouse',
-          relationship_status: 'verified',
-          notes: relationshipNotes.trim() || undefined,
-          created_by: currentUser.id,
-        });
-      }
-    }
+            },
+            currentUser,
+          );
+        } else if (relationshipType === 'sibling') {
+          const parentRels = relationships.filter(
+            (r) =>
+              r.target_person_id === targetPerson.id &&
+              ['parent', 'adoptive_parent', 'step_parent'].includes(
+                r.relationship_type,
+              ),
+          );
 
-    onSaved(newPerson);
-    onClose();
+          if (parentRels.length > 0) {
+            for (const pr of parentRels) {
+              await createRelationshipAction(
+                {
+                  family_id: familyId,
+                  source_person_id: pr.source_person_id,
+                  target_person_id: newPerson.id,
+                  relationship_type: pr.relationship_type,
+                  relationship_status: 'verified',
+                  notes: relationshipNotes.trim() || undefined,
+                },
+                currentUser,
+              );
+            }
+          } else {
+            const sharedParent = await createPersonAction(
+              {
+                family_id: familyId,
+                full_name: `Parent of ${targetPerson.display_name}`,
+                display_name: `Parent of ${targetPerson.display_name}`,
+                gender: 'unspecified',
+                living_status: 'unknown',
+                date_precision: 'unknown',
+                generation_level: Math.max(
+                  1,
+                  targetPerson.generation_level - 1,
+                ),
+                branch: targetPerson.branch,
+              },
+              currentUser,
+            );
+
+            await createRelationshipAction(
+              {
+                family_id: familyId,
+                source_person_id: sharedParent.id,
+                target_person_id: targetPerson.id,
+                relationship_type: 'parent',
+                relationship_status: 'verified',
+              },
+              currentUser,
+            );
+            await createRelationshipAction(
+              {
+                family_id: familyId,
+                source_person_id: sharedParent.id,
+                target_person_id: newPerson.id,
+                relationship_type: 'parent',
+                relationship_status: 'verified',
+              },
+              currentUser,
+            );
+          }
+        } else {
+          // Spouse
+          await createRelationshipAction(
+            {
+              family_id: familyId,
+              source_person_id: targetPerson.id,
+              target_person_id: newPerson.id,
+              relationship_type: 'spouse',
+              relationship_status: 'verified',
+              notes: relationshipNotes.trim() || undefined,
+            },
+            currentUser,
+          );
+        }
+      }
+
+      onSaved(newPerson);
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[AddRelativeDialog] save failed:', err);
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -691,9 +774,16 @@ export const AddRelativeDialog: React.FC<AddRelativeDialogProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow transition-all"
+              disabled={saving}
+              className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow transition-all"
             >
-              {isEditing ? 'Save Changes' : connectExistingMode ? 'Link Relative' : 'Save & Add to Tree'}
+              {saving
+                ? 'Saving…'
+                : isEditing
+                  ? 'Save Changes'
+                  : connectExistingMode
+                    ? 'Link Relative'
+                    : 'Save & Add to Tree'}
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { FamilyEvent, FamilyPerson } from '../../types';
-import { storage } from '../../services/storage';
+import { Family, FamilyEvent, FamilyPerson, UserProfile } from '../../types';
+import { createEventAction } from '../../services/dataActions';
 import { 
   Calendar, 
   MapPin, 
@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 
 interface EventsPageProps {
+  family: Family;
+  currentUser: UserProfile;
+  canEdit: boolean;
   events: FamilyEvent[];
   people: FamilyPerson[];
   onSelectPerson: (person: FamilyPerson) => void;
@@ -21,6 +24,9 @@ interface EventsPageProps {
 }
 
 export const EventsPage: React.FC<EventsPageProps> = ({
+  family,
+  currentUser,
+  canEdit,
   events,
   people,
   onSelectPerson,
@@ -34,6 +40,7 @@ export const EventsPage: React.FC<EventsPageProps> = ({
   const [description, setDescription] = useState('');
   const [associatedPersonIds, setAssociatedPersonIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const peopleMap = new Map<string, FamilyPerson>(people.map(p => [p.id, p]));
 
@@ -68,7 +75,7 @@ export const EventsPage: React.FC<EventsPageProps> = ({
     );
   };
 
-  const handleCreateEvent = (e: React.FormEvent) => {
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -77,27 +84,36 @@ export const EventsPage: React.FC<EventsPageProps> = ({
       return;
     }
 
-    const family = storage.getCurrentFamily();
-    const user = storage.getCurrentUser();
+    setSaving(true);
 
-    storage.addEvent({
-      family_id: family.id,
-      title: title.trim(),
-      event_type: eventType,
-      event_date: eventDate,
-      location: location.trim() || undefined,
-      description: description.trim() || undefined,
-      associated_person_ids: associatedPersonIds,
-      created_by: user.id,
-    });
+    try {
+      await createEventAction(
+        {
+          family_id: family.id,
+          title: title.trim(),
+          event_type: eventType,
+          event_date: eventDate,
+          location: location.trim() || undefined,
+          description: description.trim() || undefined,
+          associated_person_ids: associatedPersonIds,
+        },
+        currentUser,
+      );
 
-    onRefreshEvents();
-    setIsAddOpen(false);
-    setTitle('');
-    setEventDate('');
-    setLocation('');
-    setDescription('');
-    setAssociatedPersonIds([]);
+      onRefreshEvents();
+      setIsAddOpen(false);
+      setTitle('');
+      setEventDate('');
+      setLocation('');
+      setDescription('');
+      setAssociatedPersonIds([]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[EventsPage] create event failed:', err);
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -117,13 +133,15 @@ export const EventsPage: React.FC<EventsPageProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors shadow-xs flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Schedule Event
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold hover:bg-emerald-900 transition-colors shadow-xs flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Schedule Event
+          </button>
+        )}
       </div>
 
       {/* Events Grid */}
@@ -330,9 +348,10 @@ export const EventsPage: React.FC<EventsPageProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-semibold shadow-xs"
+                  disabled={saving}
+                  className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs"
                 >
-                  Save Event
+                  {saving ? 'Saving…' : 'Save Event'}
                 </button>
               </div>
             </form>

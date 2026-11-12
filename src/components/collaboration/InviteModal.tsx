@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { Role } from '../../types';
+import { Family, Role, UserProfile } from '../../types';
+import { createInvitationAction } from '../../services/dataActions';
+import { isSupabaseConfigured } from '../../services/supabase';
 import { storage } from '../../services/storage';
 import { X, Send, Copy, Check, ShieldCheck, Mail } from 'lucide-react';
 
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
+  family: Family;
+  currentUser: UserProfile;
   onInviteSent: () => void;
 }
 
 export const InviteModal: React.FC<InviteModalProps> = ({
   isOpen,
   onClose,
+  family,
+  currentUser,
   onInviteSent,
 }) => {
   const [email, setEmail] = useState('');
@@ -19,12 +25,13 @@ export const InviteModal: React.FC<InviteModalProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleGenerateInvite = (e: React.FormEvent) => {
+  const handleGenerateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || saving) return;
     setError(null);
 
     // Validate email format
@@ -33,38 +40,41 @@ export const InviteModal: React.FC<InviteModalProps> = ({
       return;
     }
 
-    const family = storage.getCurrentFamily();
-    const user = storage.getCurrentUser();
+    setSaving(true);
 
-    // Generate a cryptographically reasonable token
-    const token = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 14)}`;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7-day expiry
+    try {
+      const token = await createInvitationAction(
+        family.id,
+        email.trim(),
+        role,
+        7,
+      );
 
-    // Store a real invitation record (validated via storage.validateInvitation)
-    storage.addInvitation({
-      family_id: family.id,
-      email: email.trim(),
-      role,
-      token,
-      expires_at: expiresAt.toISOString(),
-      created_by: user.id,
-    });
+      const link = `${window.location.origin}/#invite=${token}`;
+      setGeneratedInviteLink(link);
 
-    const link = `${window.location.origin}/#invite=${token}`;
-    setGeneratedInviteLink(link);
+      // Demo mode keeps an invited membership for the local members list.
+      if (!isSupabaseConfigured) {
+        storage.addMembership({
+          family_id: family.id,
+          user_id: `usr_invited_${token.substring(0, 12)}`,
+          user_email: email.trim(),
+          user_name: email.split('@')[0],
+          role,
+          status: 'invited',
+        });
+      }
 
-    // Also add a membership record so the invited person appears in the members list
-    storage.addMembership({
-      family_id: family.id,
-      user_id: `usr_invited_${token.substring(0, 12)}`,
-      user_email: email.trim(),
-      user_name: email.split('@')[0],
-      role,
-      status: 'invited',
-    });
-
-    onInviteSent();
+      onInviteSent();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not create the invitation. Please try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCopy = () => {
@@ -136,9 +146,9 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                 <button type="button" onClick={onClose} className="px-4 py-2 border border-stone-300 text-stone-700 rounded-xl hover:bg-stone-100">
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5">
+                <button type="submit" disabled={saving} className="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5">
                   <Send className="w-3.5 h-3.5" />
-                  Generate Invite Link
+                  {saving ? 'Generating…' : 'Generate Invite Link'}
                 </button>
               </div>
             </form>

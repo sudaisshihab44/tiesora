@@ -1,4 +1,5 @@
 import React from 'react';
+import { FamilyImage } from '../common/FamilyImage';
 import {
   Family,
   FamilyPerson,
@@ -175,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onClick={() => onNavigate('memories')}
                   className="rounded-xl border border-stone-200 overflow-hidden bg-stone-50 hover:shadow-sm cursor-pointer transition-all group"
                 >
-                  <img
+                  <FamilyImage
                     src={mem.image_url}
                     alt={mem.title}
                     referrerPolicy="no-referrer"

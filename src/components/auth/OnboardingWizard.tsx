@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { storage } from '../../services/storage';
-import { supabase, isSupabaseConfigured } from '../../services/supabase';
+import {
+  createFamilyAction,
+  createInvitationAction,
+  createPersonAction,
+  createRelationshipAction,
+} from '../../services/dataActions';
 import { Family, FamilyPerson, RelationshipType } from '../../types';
 import {
   Sparkles,
@@ -52,168 +57,173 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   if (!isOpen) return null;
 
   const currentUser = storage.getCurrentUser();
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [stepSaving, setStepSaving] = useState(false);
 
   const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!familyName.trim() || syncLoading) return;
 
     setSyncError(null);
+    setStepError(null);
     setSyncLoading(true);
 
-    // Generate a real UUID when Supabase is configured so the localStorage
-    // layer and the Supabase DB share the same ID from the start.
-    const familyId = (isSupabaseConfigured && supabase)
-      ? crypto.randomUUID()
-      : undefined;
-
-    // 1. Create family in localStorage
-    const fam = storage.createFamily(
-      {
-        name: familyName.trim(),
-        description: familyDescription.trim() || undefined,
-        owner_id: currentUser.id,
-        privacy_settings: {
-          hideLivingDates: false,
-          hideLivingBiographies: false,
-          hidePrivateMemories: false,
-          requireAdminApprovalForEdits: true,
-          isPubliclySearchable: false,
-        },
-      },
-      familyId,
-    );
-    setCreatedFamily(fam);
-
-    // 2. Sync to Supabase via the create_family_with_admin RPC.
-    //
-    //    This single SECURITY DEFINER function atomically:
-    //      a) inserts the family row
-    //      b) inserts the admin membership row
-    //    It bypasses the RLS bootstrapping deadlock where inserting a family
-    //    requires an admin membership that can't exist yet.
-    //
-    //    Direct supabase.from('families').upsert() is NOT used here — that
-    //    call was the source of the 42501 RLS violation.
-    if (isSupabaseConfigured && supabase) {
-      try {
-        console.log('[OnboardingWizard] calling create_family_with_admin RPC, id=', fam.id);
-
-        const { data: rpcData, error: rpcError } = await supabase.rpc(
-          'create_family_with_admin',
-          {
-            p_family_id:        fam.id,
-            p_name:             fam.name,
-            p_description:      fam.description ?? null,
-            p_privacy_settings: fam.privacy_settings,
+    try {
+      const fam = await createFamilyAction(
+        {
+          name: familyName.trim(),
+          description: familyDescription.trim() || undefined,
+          privacy_settings: {
+            hideLivingDates: false,
+            hideLivingBiographies: false,
+            hidePrivateMemories: false,
+            requireAdminApprovalForEdits: true,
+            isPubliclySearchable: false,
           },
-        );
+        },
+        currentUser,
+      );
 
-        if (rpcError) {
-          const msg = `Family setup failed: ${rpcError.message} (${rpcError.code})`;
-          console.error('[OnboardingWizard] RPC error:', msg);
-          setSyncError(msg);
-          setSyncLoading(false);
-          return;
-        }
-
-        console.log('[OnboardingWizard] family + admin membership created, returned id=', rpcData);
-      } catch (err: any) {
-        const msg = err?.message ?? 'Unexpected error during family setup.';
-        console.error('[OnboardingWizard] unexpected error:', msg);
-        setSyncError(msg);
-        setSyncLoading(false);
-        return;
-      }
+      // Make the newly created family the active workspace before the parent
+      // refreshes its data.
+      storage.setCurrentFamilyId(fam.id);
+      setCreatedFamily(fam);
+      setSyncLoading(false);
+      setStep(3);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[OnboardingWizard] family setup failed:', error);
+      setSyncError(message);
+      setSyncLoading(false);
     }
-
-    setSyncLoading(false);
-    setStep(3);
   };
 
-  const handleStep3Submit = (e: React.FormEvent) => {
+  const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selfName.trim() || !createdFamily) return;
+    if (!selfName.trim() || !createdFamily || stepSaving) return;
 
-    const person = storage.addPerson({
-      family_id: createdFamily.id,
-      full_name: selfName.trim(),
-      display_name: selfName.trim(),
-      gender: 'unspecified',
-      living_status: 'living',
-      birth_date: selfBirthYear ? `${selfBirthYear}-01-01` : undefined,
-      date_precision: 'about',
-      generation_level: 2,
-      created_by: currentUser.id,
-    });
-    setFirstPerson(person);
-    setStep(4);
+    setStepError(null);
+    setStepSaving(true);
+
+    try {
+      const person = await createPersonAction(
+        {
+          family_id: createdFamily.id,
+          full_name: selfName.trim(),
+          display_name: selfName.trim(),
+          gender: 'unspecified',
+          living_status: 'living',
+          birth_date: selfBirthYear ? `${selfBirthYear}-01-01` : undefined,
+          date_precision: 'about',
+          generation_level: 2,
+        },
+        currentUser,
+      );
+      setFirstPerson(person);
+      setStep(4);
+    } catch (error) {
+      setStepError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setStepSaving(false);
+    }
   };
 
-  const handleStep4Submit = (e: React.FormEvent) => {
+  const handleStep4Submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!relativeName.trim() || !createdFamily || !firstPerson) {
+    if (!createdFamily || !firstPerson || stepSaving) return;
+
+    if (!relativeName.trim()) {
       setStep(5);
       return;
     }
 
-    const genLevel = relativeRelation === 'parent' ? 1 : relativeRelation === 'child' ? 3 : 2;
+    setStepError(null);
+    setStepSaving(true);
 
-    const secondPerson = storage.addPerson({
-      family_id: createdFamily.id,
-      full_name: relativeName.trim(),
-      display_name: relativeName.trim(),
-      gender: 'unspecified',
-      living_status: 'living',
-      date_precision: 'estimated',
-      generation_level: genLevel,
-      created_by: currentUser.id,
-    });
+    try {
+      const genLevel =
+        relativeRelation === 'parent'
+          ? 1
+          : relativeRelation === 'child'
+            ? 3
+            : 2;
 
-    if (relativeRelation === 'parent') {
-      storage.addRelationship({
-        family_id: createdFamily.id,
-        source_person_id: secondPerson.id,
-        target_person_id: firstPerson.id,
-        relationship_type: 'parent',
-        relationship_status: 'verified',
-        created_by: currentUser.id,
-      });
-    } else if (relativeRelation === 'child') {
-      storage.addRelationship({
-        family_id: createdFamily.id,
-        source_person_id: firstPerson.id,
-        target_person_id: secondPerson.id,
-        relationship_type: 'parent',
-        relationship_status: 'verified',
-        created_by: currentUser.id,
-      });
-    } else {
-      storage.addRelationship({
-        family_id: createdFamily.id,
-        source_person_id: firstPerson.id,
-        target_person_id: secondPerson.id,
-        relationship_type: 'spouse',
-        relationship_status: 'verified',
-        created_by: currentUser.id,
-      });
+      const secondPerson = await createPersonAction(
+        {
+          family_id: createdFamily.id,
+          full_name: relativeName.trim(),
+          display_name: relativeName.trim(),
+          gender: 'unspecified',
+          living_status: 'living',
+          date_precision: 'estimated',
+          generation_level: genLevel,
+        },
+        currentUser,
+      );
+
+      if (relativeRelation === 'parent') {
+        await createRelationshipAction(
+          {
+            family_id: createdFamily.id,
+            source_person_id: secondPerson.id,
+            target_person_id: firstPerson.id,
+            relationship_type: 'parent',
+            relationship_status: 'verified',
+          },
+          currentUser,
+        );
+      } else if (relativeRelation === 'child') {
+        await createRelationshipAction(
+          {
+            family_id: createdFamily.id,
+            source_person_id: firstPerson.id,
+            target_person_id: secondPerson.id,
+            relationship_type: 'parent',
+            relationship_status: 'verified',
+          },
+          currentUser,
+        );
+      } else {
+        await createRelationshipAction(
+          {
+            family_id: createdFamily.id,
+            source_person_id: firstPerson.id,
+            target_person_id: secondPerson.id,
+            relationship_type: 'spouse',
+            relationship_status: 'verified',
+          },
+          currentUser,
+        );
+      }
+
+      setStep(5);
+    } catch (error) {
+      setStepError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setStepSaving(false);
     }
-
-    setStep(5);
   };
 
-  const handleSendInvite = (e: React.FormEvent) => {
+  const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim() || !createdFamily) return;
+    if (!inviteEmail.trim() || !createdFamily || stepSaving) return;
 
-    storage.addMembership({
-      family_id: createdFamily.id,
-      user_id: `usr_${Date.now()}`,
-      user_email: inviteEmail.trim(),
-      user_name: inviteEmail.split('@')[0],
-      role: 'viewer',
-      status: 'invited',
-    });
-    setInviteSent(true);
+    setStepError(null);
+    setStepSaving(true);
+
+    try {
+      await createInvitationAction(
+        createdFamily.id,
+        inviteEmail.trim(),
+        'viewer',
+        7,
+      );
+      setInviteSent(true);
+    } catch (error) {
+      setStepError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setStepSaving(false);
+    }
   };
 
   return (
@@ -238,6 +248,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {stepError && (
+          <div className="mx-8 mt-4 flex items-start gap-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-0.5">Something went wrong</p>
+              <p>{stepError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Wizard Steps */}
         <div className="p-8 text-xs">
@@ -372,9 +392,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <div className="pt-4 flex items-center justify-end gap-3">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-semibold shadow-xs"
+                  disabled={stepSaving}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs"
                 >
-                  Add First Relative ➔
+                  {stepSaving ? 'Adding…' : 'Add First Relative ➔'}
                 </button>
               </div>
             </form>
@@ -428,9 +449,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-semibold shadow-xs"
+                  disabled={stepSaving}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white rounded-xl font-semibold shadow-xs"
                 >
-                  Connect & Continue ➔
+                  {stepSaving ? 'Connecting…' : 'Connect & Continue ➔'}
                 </button>
               </div>
             </form>
@@ -502,9 +524,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold rounded-xl text-xs transition-colors"
+                    disabled={stepSaving}
+                    className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 disabled:opacity-60 text-stone-800 font-semibold rounded-xl text-xs transition-colors"
                   >
-                    Send Invitation
+                    {stepSaving ? 'Sending…' : 'Send Invitation'}
                   </button>
                 </form>
               )}
