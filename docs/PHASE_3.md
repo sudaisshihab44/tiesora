@@ -32,7 +32,7 @@ Status: **implemented**, pending authenticated browser verification.
 
 | Gap | Phase |
 |---|---|
-| Pending Supabase invitations are not listed in the members tab yet; the invite link still works. | Phase 4 |
+| Pending Supabase invitations are listed in User Management and can be regenerated or revoked. | Done — Phase 4 |
 | Audit log entries are not written by client actions in Supabase mode. The table/policies exist; DB triggers or explicit logging come next. | Phase 5 |
 | JSON restore/overwrite is disabled in Supabase mode. | Phase 9 / import pipeline |
 | `ImportReviewDashboard.tsx` still has its 53 pre-existing TypeScript errors. The PDF import review flow is the next priority because the real dataset is a PDF. | Phase 6 |

@@ -96,8 +96,11 @@ BEGIN
     v_invitation.role,
     'active'
   )
-  ON CONFLICT (family_memberships.family_id, family_memberships.user_id)
-  --            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ qualified to avoid ambiguity
+  ON CONFLICT ON CONSTRAINT family_memberships_family_id_user_id_key
+  --            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  --            A constraint target avoids the ambiguity between the table
+  --            column and the RETURNS TABLE output column named family_id.
+  --            PostgreSQL does not accept table-qualified columns here.
   DO UPDATE SET
     status     = 'active',
     role       = v_invitation.role,

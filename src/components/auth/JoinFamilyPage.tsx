@@ -27,7 +27,7 @@ interface JoinFamilyPageProps {
   currentUser: UserProfile;
   /** Pre-filled token from URL hash (e.g. #invite=TOKEN) */
   prefillToken?: string;
-  onSuccess: () => void;
+  onSuccess: (familyId?: string) => void;
   onBack: () => void;
   onSignOut: () => void;
 }
@@ -91,7 +91,7 @@ export const JoinFamilyPage: React.FC<JoinFamilyPageProps> = ({
       }
 
       // ── Step 3: hand back to App.tsx to re-verify role from DB ─────────────
-      onSuccess();
+      onSuccess(acceptance.familyId);
     } finally {
       setLoading(false);
     }

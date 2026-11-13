@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Family, FamilyMembership, Role, UserProfile } from '../../types';
+import { Family, FamilyMembership, Invitation, Role, UserProfile } from '../../types';
 import {
   createInvitationAction,
+  revokeInvitationAction,
   revokeMembershipAction,
   updateMemberRoleAction,
 } from '../../services/dataActions';
@@ -15,6 +16,7 @@ import {
 interface UserManagementPageProps {
   family: Family;
   memberships: FamilyMembership[];
+  invitations: Invitation[];
   currentUser: UserProfile;
   currentRole: Role;
   onRefresh: () => void;
@@ -25,6 +27,7 @@ type Tab = 'active' | 'invited' | 'pending';
 export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   family,
   memberships,
+  invitations,
   currentUser,
   currentRole,
   onRefresh,
@@ -41,12 +44,38 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   const [revokeError, setRevokeError]   = useState<{ id: string; msg: string } | null>(null);
   const [resendLinks, setResendLinks]   = useState<Record<string, string>>({});
   const [resendCopied, setResendCopied] = useState<Record<string, boolean>>({});
+  const [regeneratedInvite, setRegeneratedInvite] = useState<{
+    email: string;
+    link: string;
+    warning?: string;
+  } | null>(null);
+  const [regeneratedCopied, setRegeneratedCopied] = useState(false);
+  const [invitationError, setInvitationError] = useState<{ id: string; msg: string } | null>(null);
 
   const isAdmin = currentRole === 'admin';
 
   const activeMembers  = useMemo(() => memberships.filter(m => m.status === 'active'), [memberships]);
   const invitedMembers = useMemo(() => memberships.filter(m => m.status === 'invited'), [memberships]);
   const pendingMembers = useMemo(() => memberships.filter(m => m.status === 'pending' || m.status === 'suspended'), [memberships]);
+
+  const pendingInvitations = useMemo(
+    () =>
+      invitations
+        .filter(
+          (inv) =>
+            !inv.accepted_at &&
+            !inv.revoked_at &&
+            new Date(inv.expires_at).getTime() > Date.now() &&
+            !activeMembers.some(
+              (m) => m.user_email.toLowerCase() === inv.email.toLowerCase(),
+            ),
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+    [invitations, activeMembers],
+  );
 
   const adminCount = activeMembers.filter(m => m.role === 'admin').length;
 
@@ -188,6 +217,68 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
     setTimeout(() => setResendCopied(prev => ({ ...prev, [memId]: false })), 2500);
   };
 
+  // ── Pending invitation links ────────────────────────────────────────────────
+  const buildInviteLink = (token: string) => {
+    const appOrigin =
+      (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ||
+      window.location.origin;
+    return `${appOrigin}/#invite=${token}`;
+  };
+
+  const handleRegenerateInvitation = async (inv: Invitation) => {
+    setInvitationError(null);
+    try {
+      const token = await createInvitationAction(family.id, inv.email, inv.role, 7);
+      let warning: string | undefined;
+      try {
+        await revokeInvitationAction(inv.id);
+      } catch (error) {
+        console.error('[UserManagementPage] could not revoke old invite:', error);
+        warning =
+          'The previous link could not be revoked. It stays valid until it expires.';
+      }
+      setRegeneratedInvite({
+        email: inv.email,
+        link: buildInviteLink(token),
+        warning,
+      });
+      setRegeneratedCopied(false);
+      onRefresh();
+    } catch (error) {
+      setInvitationError({
+        id: inv.id,
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Could not regenerate the invitation.',
+      });
+    }
+  };
+
+  const handleCopyRegenerated = () => {
+    if (!regeneratedInvite) return;
+    navigator.clipboard.writeText(regeneratedInvite.link);
+    setRegeneratedCopied(true);
+    setTimeout(() => setRegeneratedCopied(false), 2500);
+  };
+
+  const handleRevokeInvitation = async (inv: Invitation) => {
+    setInvitationError(null);
+    try {
+      await revokeInvitationAction(inv.id);
+      if (regeneratedInvite?.email === inv.email) setRegeneratedInvite(null);
+      onRefresh();
+    } catch (error) {
+      setInvitationError({
+        id: inv.id,
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Could not revoke the invitation.',
+      });
+    }
+  };
+
   // ── Role badge ───────────────────────────────────────────────────────────────
   const RoleBadge = ({ role }: { role: Role }) => (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${
@@ -217,7 +308,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
 
   const tabCount = (tab: Tab) => {
     if (tab === 'active')  return activeMembers.length;
-    if (tab === 'invited') return invitedMembers.length;
+    if (tab === 'invited') return invitedMembers.length + pendingInvitations.length;
     return pendingMembers.length;
   };
 
@@ -408,7 +499,133 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
         ))}
       </div>
 
+      {/* Pending invitations (Supabase) */}
+      {activeTab === 'invited' && regeneratedInvite && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-emerald-900">
+                New invitation link for {regeneratedInvite.email}
+              </p>
+              <p className="text-[11px] text-emerald-800/80 mt-0.5">
+                Share this link. It expires in 7 days.
+              </p>
+            </div>
+            <button
+              onClick={() => setRegeneratedInvite(null)}
+              className="text-[11px] text-emerald-800/70 hover:text-emerald-950"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={regeneratedInvite.link}
+              className="flex-1 px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-[11px] font-mono text-stone-700 min-w-0"
+            />
+            <button
+              onClick={handleCopyRegenerated}
+              className="px-3 py-1.5 bg-emerald-800 text-white rounded-lg hover:bg-emerald-900 transition-colors shrink-0 flex items-center gap-1 text-xs"
+            >
+              {regeneratedCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {regeneratedCopied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          {regeneratedInvite.warning && (
+            <p className="text-[11px] text-amber-800 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              {regeneratedInvite.warning}
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'invited' && pendingInvitations.length > 0 && (
+        <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-stone-50/70 border-b border-stone-200 text-stone-600 font-semibold">
+                  <th className="py-3 px-4">Invited email</th>
+                  <th className="py-3 px-4">Role</th>
+                  <th className="py-3 px-4 hidden sm:table-cell">Expires</th>
+                  <th className="py-3 px-4 hidden md:table-cell">Created</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {pendingInvitations.map(inv => {
+                  const daysLeft = Math.max(
+                    0,
+                    Math.ceil(
+                      (new Date(inv.expires_at).getTime() - Date.now()) /
+                        86_400_000,
+                    ),
+                  );
+                  return (
+                    <tr key={inv.id} className="hover:bg-stone-50/60 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px] flex items-center justify-center shrink-0">
+                            {inv.email.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-stone-900 truncate">
+                              {inv.email.split('@')[0]}
+                            </p>
+                            <p className="text-stone-400 text-[11px] truncate">
+                              {inv.email}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <RoleBadge role={inv.role} />
+                      </td>
+                      <td className="py-3 px-4 text-stone-500 hidden sm:table-cell">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-stone-400" />
+                          {daysLeft <= 0 ? 'Expired' : `${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-stone-400 tabular-nums hidden md:table-cell">
+                        {inv.created_at.substring(0, 10)}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => handleRegenerateInvitation(inv)}
+                            className="px-2.5 py-1 bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            New link
+                          </button>
+                          <button
+                            onClick={() => handleRevokeInvitation(inv)}
+                            className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors"
+                          >
+                            <Ban className="w-3 h-3" />
+                            Revoke
+                          </button>
+                          {invitationError?.id === inv.id && (
+                            <p className="text-[10px] text-rose-600 w-full text-right">
+                              {invitationError.msg}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Members table */}
+      {!(activeTab === 'invited' && invitedMembers.length === 0 && pendingInvitations.length > 0) && (
       <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-xs">
         {displayedMembers.length === 0 ? (
           <div className="p-10 text-center text-xs text-stone-400">
@@ -527,6 +744,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Last-admin warning */}
       {adminCount === 1 && activeMembers.length > 0 && (

@@ -11,6 +11,7 @@ import {
   Memory,
   FamilyEvent,
   FamilyMembership,
+  Invitation,
   ChangeRequest,
   AppNotification,
   AuditLog,
@@ -60,6 +61,7 @@ export default function App() {
   const [pendingEmail, setPendingEmail] = useState('');
   // Token from URL hash for invitation deep-links
   const [inviteToken,  setInviteToken]  = useState('');
+  const inviteTokenRef = useRef('');
 
   /**
    * verifiedRole — the ONLY role the rest of the app trusts.
@@ -93,6 +95,7 @@ export default function App() {
   const [memories,       setMemories]       = useState<Memory[]>([]);
   const [events,         setEvents]         = useState<FamilyEvent[]>([]);
   const [memberships,    setMemberships]    = useState<FamilyMembership[]>([]);
+  const [invitations,    setInvitations]    = useState<Invitation[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
   const [auditLogs,      setAuditLogs]      = useState<AuditLog[]>([]);
@@ -118,6 +121,7 @@ export default function App() {
       setMemories(storage.getMemories(currFam.id));
       setEvents(storage.getEvents(currFam.id));
       setMemberships(storage.getMemberships(currFam.id));
+      setInvitations([]);
       setChangeRequests(storage.getChangeRequests(currFam.id));
       setNotifications(storage.getNotifications(user.id));
       setAuditLogs(storage.getAuditLogs(currFam.id));
@@ -147,6 +151,7 @@ export default function App() {
         setMemories([]);
         setEvents([]);
         setMemberships([]);
+        setInvitations([]);
         setChangeRequests([]);
         setNotifications([]);
         setAuditLogs([]);
@@ -162,6 +167,7 @@ export default function App() {
         memories,
         events,
         memberships,
+        invitations,
         changeRequests,
         notifications,
         auditLogs,
@@ -172,6 +178,7 @@ export default function App() {
         db.listMemories(active.id),
         db.listEvents(active.id),
         db.listMemberships(active.id),
+        db.listInvitations(active.id),
         db.listChangeRequests(active.id),
         db.listNotifications(user.id),
         db.listAuditLogs(active.id),
@@ -185,6 +192,7 @@ export default function App() {
       setMemories(memories);
       setEvents(events);
       setMemberships(memberships);
+      setInvitations(invitations);
       setChangeRequests(changeRequests);
       setNotifications(notifications);
       setAuditLogs(auditLogs);
@@ -207,6 +215,27 @@ export default function App() {
     setVerifiedFamilyId(familyId);
     if (familyId) storage.setCurrentFamilyId(familyId);
   }, []);
+
+  // Keep the hash token readable inside the auth-state listener, whose
+  // closure is created before the first render's state update.
+  useEffect(() => {
+    inviteTokenRef.current = inviteToken;
+  }, [inviteToken]);
+
+  // Deep links pasted while the app is already open only change the hash and
+  // do not reload the document, so the boot handler never sees them.
+  useEffect(() => {
+    const handleHashChange = () => {
+      const match = window.location.hash.match(/[#&]invite=([^&]+)/);
+      if (!match) return;
+      setInviteToken(match[1]);
+      window.history.replaceState(null, '', window.location.pathname);
+      setAuthView(currentUser ? 'join-family' : 'signin');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentUser]);
 
   // ── Re-verify role from DB and enter app ─────────────────────────────────
   const enterApp = useCallback(async (user: UserProfile) => {
@@ -311,6 +340,14 @@ export default function App() {
       if (user) {
         storage.updateCurrentUser(user);
         setCurrentUser(user);
+
+        // A pending invitation deep-link wins over normal routing: the user
+        // must accept it before entering the app.
+        if (inviteTokenRef.current) {
+          setAuthView('join-family');
+          return;
+        }
+
         const dbRole = await getRoleFromDB(user.id);
         if (!cancelled) {
           if (dbRole) {
@@ -453,6 +490,10 @@ export default function App() {
             storage.updateCurrentUser(user);
             setCurrentUser(user);
             applyVerifiedRole(role, familyId);
+            if (inviteTokenRef.current) {
+              setAuthView('join-family');
+              return;
+            }
             void refreshAll();
             setAuthView('app');
             setCurrentTab('dashboard');
@@ -461,7 +502,9 @@ export default function App() {
             // Authenticated user with no family — choose Create or Join
             storage.updateCurrentUser(user);
             setCurrentUser(user);
-            setAuthView('onboarding-choice');
+            setAuthView(
+              inviteTokenRef.current ? 'join-family' : 'onboarding-choice',
+            );
           }}
           onGoSignUp={() => setAuthView('signup')}
           onGoLanding={() => setAuthView('landing')}
@@ -492,7 +535,9 @@ export default function App() {
           } else {
             // Email confirmation is OFF (recommended for dev) — user is
             // already authenticated. Send them to choose Create/Join.
-            setAuthView('onboarding-choice');
+            setAuthView(
+              inviteTokenRef.current ? 'join-family' : 'onboarding-choice',
+            );
           }
         }}
         onGoSignIn={() => setAuthView('signin')}
@@ -542,8 +587,10 @@ export default function App() {
       <JoinFamilyPage
         currentUser={joinUser}
         prefillToken={inviteToken}
-        onSuccess={async () => {
-          // Invitation accepted — re-verify role from DB and enter app
+        onSuccess={async (familyId) => {
+          // Invitation accepted — switch to that family and re-verify the role.
+          if (familyId) storage.setCurrentFamilyId(familyId);
+          setInviteToken('');
           await enterApp(joinUser);
         }}
         onBack={() => setAuthView('onboarding-choice')}
@@ -743,6 +790,7 @@ export default function App() {
             <UserManagementPage
               family={currentFamily}
               memberships={memberships}
+              invitations={invitations}
               currentUser={currentUser}
               currentRole={verifiedRole}
               onRefresh={refreshAll}
