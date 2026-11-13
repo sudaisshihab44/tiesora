@@ -91,6 +91,15 @@ function normalizeDateForDb(value?: string | null): string | null {
   return trimmed;
 }
 
+/** "A.1"/"A" -> 1, "B.2" -> 2, etc. */
+function generationLevelFromLabel(label?: string | null): number | undefined {
+  if (!label) return undefined;
+  const match = String(label).trim().match(/^([A-Za-z])/);
+  if (!match) return undefined;
+  const level = match[1].toUpperCase().charCodeAt(0) - 64;
+  return level >= 1 && level <= 26 ? level : undefined;
+}
+
 function buildExtractionPrompt(pages: ProcessedPage[], documentType: 'text' | 'diagram' | 'mixed'): string {
   const combinedText = pages
     .map(p => {
@@ -903,6 +912,20 @@ export async function extractFamilyDataFromPDF(
       allRelationships,
       allPeople,
     );
+
+    const inferredLevels = assignGenerationLevels(
+      allPeople,
+      allRelationships,
+    );
+    allPeople = allPeople.map((person) => ({
+      ...person,
+      generation_level:
+        person.generation_level ??
+        generationLevelFromLabel(person.generation_label) ??
+        inferredLevels.get(person.full_name) ??
+        1,
+    }));
+
     console.log(
       `[Extractor] Deduped people: ${beforeDedupe} -> ${allPeople.length}; ` +
         `relationships: ${allRelationships.length}`,
@@ -981,6 +1004,7 @@ export async function extractFamilyDataFromPDF(
       living_status: person.living_status || 'unknown',
       biography: person.biography || null,
       generation_label: person.generation_label || null,
+      generation_level: person.generation_level ?? 1,
       branch: person.branch || null,
       source_page_numbers: person.source_pages || [],
       confidence_score: person.confidence || 0.7,
