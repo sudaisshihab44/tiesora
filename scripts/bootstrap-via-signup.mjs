@@ -32,10 +32,15 @@ const adminEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL || 'admin@tiesora.test')
 const viewerEmail = (process.env.BOOTSTRAP_VIEWER_EMAIL || 'viewer@tiesora.test')
   .trim()
   .toLowerCase();
-const adminPassword =
-  process.env.BOOTSTRAP_ADMIN_PASSWORD || 'Tiesora-Admin-2026!';
-const viewerPassword =
-  process.env.BOOTSTRAP_VIEWER_PASSWORD || 'Tiesora-Viewer-2026!';
+const adminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+const viewerPassword = process.env.BOOTSTRAP_VIEWER_PASSWORD;
+
+if (!adminPassword || !viewerPassword) {
+  console.error(
+    'Set BOOTSTRAP_ADMIN_PASSWORD and BOOTSTRAP_VIEWER_PASSWORD in .env (local only).',
+  );
+  process.exit(1);
+}
 
 const adminClient = createClient(url, anonKey, {
   auth: { persistSession: false, autoRefreshToken: false },
