@@ -213,10 +213,28 @@ export async function getSessionUser(): Promise<UserProfile | null> {
     return storage.getCurrentUser();
   }
 
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      if (error) {
+        // A deleted/revoked account can leave a stale token behind. Clear it
+        // instead of throwing during app boot.
+        await supabase.auth.signOut().catch(() => {});
+      }
+      return null;
+    }
 
-  return fetchProfile(data.user.id);
+    try {
+      return await fetchProfile(data.user.id);
+    } catch (profileError) {
+      console.warn('[auth] profile unavailable, clearing stale session:', profileError);
+      await supabase.auth.signOut().catch(() => {});
+      return null;
+    }
+  } catch (error) {
+    console.warn('[auth] session check failed:', error);
+    return null;
+  }
 }
 
 // ─── Subscribe to auth state changes ─────────────────────────────────────────
@@ -229,12 +247,20 @@ export function onAuthStateChange(
     return () => {};
   }
 
-  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+  const client = supabase;
+
+  const { data } = client.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
-      const profile = await fetchProfile(session.user.id);
-      // Sync to localStorage so storage.getCurrentUser() is always up-to-date
-      storage.updateCurrentUser(profile);
-      callback(profile, event);
+      try {
+        const profile = await fetchProfile(session.user.id);
+        // Sync to localStorage so storage.getCurrentUser() is always up-to-date
+        storage.updateCurrentUser(profile);
+        callback(profile, event);
+      } catch (error) {
+        console.warn('[auth] auth event profile load failed:', error);
+        await client.auth.signOut().catch(() => {});
+        callback(null, 'SIGNED_OUT');
+      }
     } else {
       callback(null, event);
     }

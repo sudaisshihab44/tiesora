@@ -110,6 +110,8 @@ share publicly. See `docs/PHASE_7.md`.
 ## Documentation map
 
 - `docs/AUTH.md` — authentication, roles, invitations
+- `docs/GOOGLE_OAUTH.md` — Google sign-in setup
+- `docs/EMAIL_SMTP.md` — verification and password-reset email setup
 - `docs/PDF_IMPORT.md` — import pipeline and troubleshooting
 - `docs/DEPLOYMENT.md` — Vercel/Supabase production deployment
 - `docs/EDGE_FUNCTION.md` — Edge Function secrets and deployment

@@ -7,6 +7,8 @@ Canonical docs (start here):
 | `README.md` (repo root) | Product overview, quick start, feature list |
 | `docs/SETUP.md` | Local environment, migrations, Edge secrets, test accounts |
 | `docs/AUTH.md` | Roles, authentication, invitations, security troubleshooting |
+| `docs/GOOGLE_OAUTH.md` | Google Cloud + Supabase Google provider setup |
+| `docs/EMAIL_SMTP.md` | Email verification and password-reset delivery |
 | `docs/PDF_IMPORT.md` | Import pipeline, provider chain, limits, diagnostics |
 | `docs/DEPLOYMENT.md` | Vercel + Supabase production deployment |
 | `docs/EDGE_FUNCTION.md` | Edge Function deployment and secrets |
@@ -24,6 +26,7 @@ Implementation history:
 | `docs/PHASE_7.md` | Read-only public demo sandbox |
 | `docs/PHASE_8.md` | Docs consolidation, large-tree list default, dependency audit |
 | `docs/PHASE_9.md` | Legacy localStorage decision, RLS audit, production readiness |
+| `docs/DATA_REPAIR_2026-11-13.md` | PDF layout-based generation and parent-link repair |
 
 Remaining optional work:
 
