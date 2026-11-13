@@ -1,5 +1,7 @@
 import React from 'react';
 import { FamilyImage } from '../common/FamilyImage';
+import { calculateRelationship } from '../../utils/relationshipEngine';
+import { toRoman } from '../../utils/roman';
 import {
   Family,
   FamilyPerson,
@@ -60,6 +62,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .slice(0, 3);
   const marriages = relationships.filter(r => ['spouse', 'partner'].includes(r.relationship_type));
 
+  const featuredEdge = relationships.find((relationship) =>
+    ['parent', 'spouse', 'adoptive_parent', 'step_parent', 'partner'].includes(
+      relationship.relationship_type,
+    ),
+  );
+  const featuredA = featuredEdge
+    ? people.find((person) => person.id === featuredEdge.source_person_id)
+    : undefined;
+  const featuredB = featuredEdge
+    ? people.find((person) => person.id === featuredEdge.target_person_id)
+    : undefined;
+  const featuredCalculation =
+    featuredA && featuredB
+      ? calculateRelationship(featuredA, featuredB, people, relationships)
+      : null;
+
   return (
     <div className="max-w-5xl mx-auto p-3 sm:p-5 space-y-5">
       {/* Welcome Banner — compact */}
@@ -108,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Members', value: people.length, sub: `${marriages.length} marriages`, icon: Users, tab: 'tree' },
-          { label: 'Generations', value: maxGen, sub: 'Gen I to IV', icon: Layers, tab: 'tree' },
+          { label: 'Generations', value: maxGen, sub: `Gen I through ${toRoman(maxGen)}`, icon: Layers, tab: 'tree' },
           { label: 'Memories', value: memories.length, sub: 'Photos & stories', icon: Camera, tab: 'memories' },
           { label: 'Events', value: events.length, sub: 'Upcoming milestones', icon: Calendar, tab: 'events' },
         ].map(({ label, value, sub, icon: Icon, tab }) => (
@@ -213,19 +231,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="p-3 bg-emerald-50/50 border border-emerald-900/10 rounded-lg space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                Featured: Thomas & Julian
+                {featuredA && featuredB
+                  ? `${featuredA.display_name} & ${featuredB.display_name}`
+                  : 'Explore your family connections'}
               </div>
-              <p className="text-xs text-emerald-900/80 leading-relaxed">
-                <strong>First Cousins</strong> through shared grandparents Jonathan Vance & Eleanor Ward.
+              <p className="text-xs text-emerald-900/80 leading-relaxed line-clamp-2">
+                {featuredA && featuredB && featuredCalculation ? (
+                  <>
+                    <strong>{featuredCalculation.primaryLabel}</strong>
+                    {featuredCalculation.pathDescription
+                      ? ` — ${featuredCalculation.pathDescription}`
+                      : ''}
+                  </>
+                ) : (
+                  'Select any two relatives to see how they are connected.'
+                )}
               </p>
-              <div className="flex flex-wrap items-center gap-1 text-[10px] text-stone-500">
-                {['Thomas', 'Diana Vance', 'Jonathan & Eleanor', 'Linda Vance', 'Julian Chen'].map((n, i, arr) => (
-                  <React.Fragment key={n}>
-                    <span className={i === 0 || i === arr.length - 1 ? 'font-semibold text-stone-700' : ''}>{n}</span>
-                    {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-stone-300" />}
-                  </React.Fragment>
-                ))}
-              </div>
+              {featuredA && featuredB && (
+                <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                  <span className="font-semibold text-stone-700">
+                    {featuredA.display_name}
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-stone-300" />
+                  <span className="font-semibold text-stone-700">
+                    {featuredB.display_name}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

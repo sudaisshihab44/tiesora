@@ -129,13 +129,18 @@ export function answerFamilyQuestion(
   }
 
   // 4. Default overview response
+  const exampleA = people[0]?.display_name || 'a relative';
+  const exampleB = people[1]?.display_name || 'another relative';
+  const examplePlace =
+    memories.find((memory) => memory.location)?.location || 'a place';
+
   return {
     text: `I’m your Tiesora Family Assistant. I can answer inquiries grounded strictly in your **${family.name}** records (${people.length} people, ${relationships.length} relationships, ${memories.length} memories).\n\n` +
       `Try asking:\n` +
-      `• *"How is Thomas Montgomery related to Julian Chen?"*\n` +
-      `• *"Summarize Eleanor Ward's recorded history"*\n` +
+      `• *"How is ${exampleA} related to ${exampleB}?"*\n` +
+      `• *"Summarize ${exampleA}'s recorded history"*\n` +
       `• *"Who belongs to Generation I?"*\n` +
-      `• *"Show memories from Lake Sunapee"*`,
+      `• *"Show memories from ${examplePlace}"*`,
     citedPeople: [],
   };
 }

@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import { FamilyImage } from '../common/FamilyImage';
+import { toRoman } from '../../utils/roman';
 import {
   Family,
   FamilyPerson,
@@ -152,7 +153,7 @@ export const ViewerDashboard: React.FC<ViewerDashboardProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Members',     value: people.length,    sub: `${marriages.length} marriages`,    icon: Users,    tab: 'tree' },
-          { label: 'Generations', value: maxGen,            sub: 'Gen I through ' + ['I','II','III','IV','V'][maxGen - 1], icon: Layers,   tab: 'tree' },
+          { label: 'Generations', value: maxGen,            sub: `Gen I through ${toRoman(maxGen)}`, icon: Layers,   tab: 'tree' },
           { label: 'Memories',    value: memories.length,  sub: 'Photos & stories',                 icon: Camera,   tab: 'memories' },
           { label: 'Events',      value: events.length,    sub: 'Milestones & dates',               icon: Calendar, tab: 'events' },
         ].map(({ label, value, sub, icon: Icon, tab }) => (

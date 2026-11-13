@@ -58,12 +58,17 @@ export const FamilyAssistantModal: React.FC<FamilyAssistantModalProps> = ({
 
   if (!isOpen) return null;
 
-  const quickQuestions = [
-    'How is Thomas Montgomery related to Julian Chen?',
-    'Summarize Eleanor Ward Vance’s history',
-    'Who is recorded in Generation 1?',
-    'How is Leo Montgomery related to Helena Rostova?',
-  ];
+  const quickQuestions = people.length >= 2
+    ? [
+        `How is ${people[0].display_name} related to ${people[1].display_name}?`,
+        `Summarize ${people[0].display_name}'s history`,
+        'Who is recorded in Generation 1?',
+        `How is ${people[2]?.display_name ?? people[0].display_name} related to ${people[3]?.display_name ?? people[1].display_name}?`,
+      ]
+    : [
+        'Summarize this family tree.',
+        'Who is recorded in Generation 1?',
+      ];
 
   const handleSend = (textToSend?: string) => {
     const q = textToSend || inputQuery;

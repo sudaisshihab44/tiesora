@@ -49,15 +49,44 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
     setPersonBId(temp);
   };
 
-  // Quick Presets
-  const presets = [
-    { label: 'Thomas & Julian (First Cousins)', a: 'p_thomas', b: 'p_julian' },
-    { label: 'Thomas & Eleanor (Grandmother)', a: 'p_thomas', b: 'p_eleanor' },
-    { label: 'Maya & Oliver (Second Cousins)', a: 'p_maya', b: 'p_oliver' },
-    { label: 'Leo & Helena (Step-Parent)', a: 'p_leo', b: 'p_helena' },
-    { label: 'Patricia & Chloe (Adoptive)', a: 'p_patricia', b: 'p_chloe' },
-    { label: 'Thomas & Noah (Father & Son)', a: 'p_thomas', b: 'p_noah' },
-  ];
+  // Data-driven quick presets from the family's actual relationships.
+  const presets = useMemo(() => {
+    const seen = new Set<string>();
+    const result: Array<{ label: string; a: string; b: string }> = [];
+
+    for (const relationship of relationships) {
+      if (
+        !['parent', 'spouse', 'adoptive_parent', 'step_parent', 'partner'].includes(
+          relationship.relationship_type,
+        )
+      ) {
+        continue;
+      }
+
+      const a = people.find(
+        (person) => person.id === relationship.source_person_id,
+      );
+      const b = people.find(
+        (person) => person.id === relationship.target_person_id,
+      );
+      if (!a || !b) continue;
+
+      const key = [a.id, b.id].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const calculation = calculateRelationship(a, b, people, relationships);
+      result.push({
+        label: `${a.display_name} & ${b.display_name} (${calculation.primaryLabel})`,
+        a: a.id,
+        b: b.id,
+      });
+
+      if (result.length >= 4) break;
+    }
+
+    return result;
+  }, [people, relationships]);
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-5 space-y-5">
@@ -76,12 +105,10 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
       </div>
 
       {/* Quick Discovery Presets */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <span className="text-stone-400 font-medium whitespace-nowrap">Explore presets:</span>
-        {presets.map(preset => {
-          const hasBoth = people.some(p => p.id === preset.a) && people.some(p => p.id === preset.b);
-          if (!hasBoth) return null;
-          return (
+      {presets.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-stone-400 font-medium whitespace-nowrap">Explore presets:</span>
+          {presets.map(preset => (
             <button
               key={preset.label}
               onClick={() => {
@@ -92,9 +119,9 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
             >
               {preset.label}
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Selectors Card */}
       <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-xs">
