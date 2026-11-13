@@ -2,6 +2,32 @@
 
 Status: current as of 2026-11-13.
 
+## Current production deployment
+
+| Item | Value |
+|---|---|
+| Public URL | `https://tiesora-alpha.vercel.app` |
+| Vercel scope/project | `ahad-4e44/tiesora` |
+| Production commit | `82ac2f6` (same tree as `bc45b4d`) |
+| Deployment protection | Disabled for this project |
+| Supabase Site URL | `https://tiesora-alpha.vercel.app/` |
+
+The older `tiesora-sudais-projects-70d52462.vercel.app` project belongs to a
+different Vercel account and is protected by that account. It is not the
+canonical production URL.
+
+Manual production deploy (until GitHub is connected):
+
+```bash
+npx vercel deploy --prod --yes --project tiesora
+```
+
+To enable push-to-deploy, Vercel must be connected to
+`https://github.com/sudaisshihab44/tiesora`. The CLI account `ahad-4e44` does
+not currently have access to that repository through the Vercel GitHub app.
+Connect it in Vercel → project `tiesora` → Settings → Git, or sign in to Vercel
+with the GitHub account that owns the repository.
+
 ## Architecture
 
 - **Frontend**: Vite/React build on Vercel.
