@@ -16,7 +16,7 @@ import { recordAudit } from './db/auditLogs';
 import { normalizeRole, type UserProfile } from '../types';
 
 export type AuthResult =
-  | { ok: true; user: UserProfile }
+  | { ok: true; user: UserProfile; needsConfirmation?: boolean }
   | { ok: false; error: string };
 
 // ─── Sign Up ─────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export async function signUp(
   if (!isSupabaseConfigured || !supabase) {
     // Demo mode — just mutate localStorage
     const user = storage.updateCurrentUser({ display_name: displayName, email: cleanEmail });
-    return { ok: true, user };
+    return { ok: true, user, needsConfirmation: false };
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -65,15 +65,31 @@ export async function signUp(
   if (error) return { ok: false, error: error.message };
   if (!data.user) return { ok: false, error: 'Sign-up failed — no user returned.' };
 
-  // Upsert profile row (trigger handles it, but we do it explicitly for safety)
-  await supabase.from('profiles').upsert({
-    id:           data.user.id,
-    email:        data.user.email ?? cleanEmail,
-    display_name: displayName,
-  });
+  const needsConfirmation = !data.session;
 
-  const profile = await fetchProfile(data.user.id);
-  return { ok: true, user: profile };
+  // With email confirmation enabled there is no authenticated session yet, so
+  // the profile row must be created by the database trigger. Only upsert here
+  // when the user is already signed in.
+  if (data.session) {
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id:           data.user.id,
+      email:        data.user.email ?? cleanEmail,
+      display_name: displayName,
+    });
+    if (profileError) {
+      console.warn('[auth] profile upsert after sign-up failed:', profileError.message);
+    }
+  }
+
+  const profile: UserProfile = {
+    id: data.user.id,
+    email: data.user.email ?? cleanEmail,
+    display_name: displayName,
+    preferred_language: 'en',
+    created_at: data.user.created_at ?? new Date().toISOString(),
+  };
+
+  return { ok: true, user: profile, needsConfirmation };
 }
 
 // ─── Resend confirmation email ────────────────────────────────────────────────
@@ -126,6 +142,29 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut();
   }
   // In demo mode, sign-out just returns to landing — App.tsx handles the view state.
+}
+
+// ─── Google OAuth ─────────────────────────────────────────────────────────────
+/**
+ * Starts the Google OAuth redirect. The provider must be enabled in Supabase
+ * Dashboard → Authentication → Providers → Google. The button component hides
+ * itself when the public auth settings report Google as disabled.
+ */
+export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { ok: false, error: 'Google sign-in requires Supabase to be configured.' };
+  }
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/`,
+      queryParams: { prompt: 'select_account' },
+    },
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 // ─── Password Reset ───────────────────────────────────────────────────────────
@@ -465,7 +504,27 @@ async function fetchProfile(userId: string): Promise<UserProfile> {
     .eq('id', userId)
     .single();
 
-  if (!data) return storage.getCurrentUser();
+  if (!data) {
+    // The profile trigger may not have committed yet, or the caller may be
+    // unauthenticated. Never fall back to localStorage — that could surface a
+    // different account's identity.
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+    if (authUser?.id === userId) {
+      const metadata = authUser.user_metadata as Record<string, unknown> | undefined;
+      return {
+        id: userId,
+        email: authUser.email ?? '',
+        display_name:
+          (typeof metadata?.display_name === 'string' && metadata.display_name) ||
+          authUser.email?.split('@')[0] ||
+          'Family member',
+        preferred_language: 'en',
+        created_at: authUser.created_at ?? new Date().toISOString(),
+      };
+    }
+    throw new Error('Could not load your profile. Please sign in again.');
+  }
 
   const profile: UserProfile = {
     id: data.id,

@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from '../../services/supabase';
 import { storage } from '../../services/storage';
 import { UserProfile, Role } from '../../types';
 import { TiesoraLogo } from '../common/TiesoraLogo';
+import { GoogleAuthButton } from './GoogleAuthButton';
 import {
   Mail, Lock, Eye, EyeOff, Loader2, ShieldCheck, AlertCircle,
   Shield, Users, ArrowRight, ChevronLeft, CheckCircle2,
@@ -422,6 +423,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
               ) : stage === 'form' ? (
                 /* ── Sign-in form ── */
+                <div className="space-y-3">
                 <form onSubmit={handleSignIn} className="space-y-3" noValidate>
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1">
@@ -486,6 +488,14 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                   </button>
                 </form>
 
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="h-px flex-1 bg-stone-200" />
+                  <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">or</span>
+                  <div className="h-px flex-1 bg-stone-200" />
+                </div>
+                <GoogleAuthButton disabled={loading} />
+
+                </div>
               ) : (
                 /* ── Forgot-password form ── */
                 <form onSubmit={handleForgot} className="space-y-3" noValidate>

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Family, Memory, FamilyPerson, UserProfile } from '../../types';
 import { MemoryUploadModal } from './MemoryUploadModal';
 import { FamilyImage } from '../common/FamilyImage';
+import { deleteMemoryAction } from '../../services/dataActions';
 import { 
   Camera, 
   Calendar, 
@@ -12,7 +13,9 @@ import {
   Clock, 
   Filter, 
   X, 
-  Lock 
+  Lock,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 
 interface MemoriesPageProps {
@@ -39,6 +42,28 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
   const [selectedPersonFilter, setSelectedPersonFilter] = useState<string>('all');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [activeMemory, setActiveMemory] = useState<Memory | null>(null);
+  const [deletingMemory, setDeletingMemory] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteMemory = async () => {
+    if (!activeMemory || deletingMemory) return;
+    if (!window.confirm(`Delete "${activeMemory.title}"? This cannot be undone.`)) {
+      return;
+    }
+    setDeleteError(null);
+    setDeletingMemory(true);
+    try {
+      await deleteMemoryAction(activeMemory.id);
+      setActiveMemory(null);
+      onRefreshMemories();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : 'Could not delete the memory.',
+      );
+    } finally {
+      setDeletingMemory(false);
+    }
+  };
 
   const peopleMap = new Map<string, FamilyPerson>(people.map(p => [p.id, p]));
 
@@ -367,6 +392,27 @@ export const MemoriesPage: React.FC<MemoriesPageProps> = ({
                   Added by {activeMemory.created_by_name}
                 </span>
               </div>
+
+              {canEdit && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleDeleteMemory}
+                    disabled={deletingMemory}
+                    className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 disabled:opacity-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    {deletingMemory ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    {deletingMemory ? 'Deleting…' : 'Delete Memory'}
+                  </button>
+                </div>
+              )}
+
+              {deleteError && (
+                <p className="text-xs text-rose-600 text-right">{deleteError}</p>
+              )}
 
               {activeMemory.description && (
                 <p className="text-xs text-stone-700 leading-relaxed whitespace-pre-line bg-stone-50 p-4 rounded-xl border border-stone-200">

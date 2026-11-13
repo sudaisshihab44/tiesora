@@ -1,6 +1,7 @@
 import type { Memory } from '../../types';
 import { db, defined, execute, queryMany, queryOne } from './core';
 import { recordAudit } from './auditLogs';
+import { deleteFamilyPhoto } from './storage';
 import { mapMemory, toDbDate } from './mappers';
 import type { MemoryRow } from './rows';
 
@@ -127,6 +128,16 @@ export async function deleteMemory(memoryId: string): Promise<void> {
     db().from('memories').delete().eq('id', memoryId),
     'delete memory',
   );
+
+  // Best-effort removal of the stored object; a failed cleanup must not block
+  // deletion of the memory row.
+  if (current.image_url) {
+    try {
+      await deleteFamilyPhoto(current.image_url);
+    } catch (error) {
+      console.warn('[db] memory deleted, photo cleanup failed:', error);
+    }
+  }
 
   await recordAudit({
     family_id: current.family_id,

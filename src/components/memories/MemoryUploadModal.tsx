@@ -37,8 +37,6 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
-
   const toggleTagPerson = (id: string) => {
     setTaggedPersonIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -134,6 +132,8 @@ export const MemoryUploadModal: React.FC<MemoryUploadModalProps> = ({
       setSaving(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">

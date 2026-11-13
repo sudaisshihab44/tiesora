@@ -9,6 +9,25 @@ import {
   getDemoSandbox,
   setDemoSandboxActive,
 } from './services/demoSandbox';
+
+const PENDING_INVITE_KEY = 'tiesora_pending_invite';
+
+function rememberPendingInvite(token: string): void {
+  try {
+    localStorage.setItem(PENDING_INVITE_KEY, token);
+  } catch {
+    // localStorage can be unavailable in private modes; the in-memory token
+    // still covers same-page flows.
+  }
+}
+
+function clearPendingInvite(): void {
+  try {
+    localStorage.removeItem(PENDING_INVITE_KEY);
+  } catch {
+    // ignore
+  }
+}
 import * as db from './services/db';
 import { deletePersonAction, deleteRelationshipAction } from './services/dataActions';
 import {
@@ -267,6 +286,7 @@ export default function App() {
     const handleHashChange = () => {
       const match = window.location.hash.match(/[#&]invite=([^&]+)/);
       if (!match) return;
+      rememberPendingInvite(match[1]);
       setInviteToken(match[1]);
       window.history.replaceState(null, '', window.location.pathname);
       setAuthView(currentUser ? 'join-family' : 'signin');
@@ -329,9 +349,24 @@ export default function App() {
 
     if (inviteMatch) {
       window.history.replaceState(null, '', window.location.pathname);
+      rememberPendingInvite(inviteMatch[1]);
       setInviteToken(inviteMatch[1]);
       // If already signed in, go to join-family. Otherwise sign up first.
       // checkSession() below will handle the signed-in case.
+    }
+
+    // A pending invite may survive an OAuth/email-confirmation redirect in
+    // sessionStorage, where the URL hash no longer contains it.
+    let pendingInvite = inviteMatch ? inviteMatch[1] : '';
+    if (!pendingInvite) {
+      try {
+        pendingInvite = localStorage.getItem(PENDING_INVITE_KEY) || '';
+      } catch {
+        pendingInvite = '';
+      }
+    }
+    if (pendingInvite && !inviteMatch) {
+      setInviteToken(pendingInvite);
     }
 
     async function checkSession() {
@@ -348,8 +383,8 @@ export default function App() {
           if (dbRole) {
             applyVerifiedRole(dbRole.role, dbRole.familyId);
             // If there's a pending invite, let them join a second family
-            if (inviteMatch) {
-              setInviteToken(inviteMatch[1]);
+            if (pendingInvite) {
+              setInviteToken(pendingInvite);
               setAuthView('join-family');
             } else {
               void refreshAll();
@@ -358,8 +393,8 @@ export default function App() {
           } else {
             // Authenticated but no family yet — send to onboarding choice
             // Handle pending invite token if present
-            if (inviteMatch) {
-              setInviteToken(inviteMatch[1]);
+            if (pendingInvite) {
+              setInviteToken(pendingInvite);
               setAuthView('join-family');
             } else {
               setAuthView('onboarding-choice');
@@ -557,6 +592,7 @@ export default function App() {
     setVerifiedRole('viewer');
     setVerifiedFamilyId('');
     setInviteToken('');
+    clearPendingInvite();
     setDataLoaded(false);
     setDataError(null);
   };
@@ -695,9 +731,14 @@ export default function App() {
           // Invitation accepted — switch to that family and re-verify the role.
           if (familyId) storage.setCurrentFamilyId(familyId);
           setInviteToken('');
+          clearPendingInvite();
           await enterApp(joinUser);
         }}
-        onBack={() => setAuthView('onboarding-choice')}
+        onBack={() => {
+          setInviteToken('');
+          clearPendingInvite();
+          setAuthView('onboarding-choice');
+        }}
         onSignOut={handleSignOut}
       />
     );

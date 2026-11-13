@@ -54,11 +54,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteSent, setInviteSent]   = useState(false);
 
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [stepSaving, setStepSaving] = useState(false);
+
   if (!isOpen) return null;
 
   const currentUser = storage.getCurrentUser();
-  const [stepError, setStepError] = useState<string | null>(null);
-  const [stepSaving, setStepSaving] = useState(false);
 
   const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();

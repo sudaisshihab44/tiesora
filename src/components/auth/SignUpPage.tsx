@@ -3,6 +3,7 @@ import { signUp } from '../../services/auth';
 import { isSupabaseConfigured } from '../../services/supabase';
 import { UserProfile } from '../../types';
 import { TiesoraLogo } from '../common/TiesoraLogo';
+import { GoogleAuthButton } from './GoogleAuthButton';
 import {
   User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Check,
 } from 'lucide-react';
@@ -81,20 +82,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
         setError(result.error);
         return;
       }
-      // Email confirmation is only required when:
-      //   • Supabase is configured AND
-      //   • "Confirm email" is ENABLED in Supabase Dashboard
-      //     (Authentication → Email → "Enable email confirmations")
-      //
-      // For development: disable confirmation in the Supabase Dashboard so
-      // users sign in immediately without clicking an email link.
-      //
-      // We detect whether confirmation is required by checking if Supabase
-      // returned a session. If data.session is null, confirmation is needed.
-      // signUp() in auth.ts returns the user regardless; we rely on the
-      // isSupabaseConfigured flag plus the presence of a session to decide.
-      const needsConfirmation = isSupabaseConfigured;
-      onSuccess(result.user, needsConfirmation);
+      onSuccess(result.user, result.needsConfirmation ?? false);
     } finally {
       setLoading(false);
       inFlight.current = false;
@@ -137,6 +125,13 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onGoSignIn, o
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3" noValidate>
+                <GoogleAuthButton disabled={loading} label="Sign up with Google" />
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-stone-200" />
+                  <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">or sign up with email</span>
+                  <div className="h-px flex-1 bg-stone-200" />
+                </div>
+
                 {/* Full name */}
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
