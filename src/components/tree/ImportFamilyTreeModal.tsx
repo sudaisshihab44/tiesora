@@ -42,6 +42,12 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Extraction progress / ETA
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractionMessage, setExtractionMessage] = useState('Preparing document...');
+  const [extractionEtaMs, setExtractionEtaMs] = useState<number | null>(null);
+  const [estimatedTotalMs, setEstimatedTotalMs] = useState<number | null>(null);
+
   // Validation constants
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   const MAX_PAGES = 200; // Reasonable limit for genealogy documents
@@ -155,6 +161,10 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
     setUploadStatus('uploading');
     setUploadProgress(0);
     setErrorMessage(null);
+    setExtractionProgress(0);
+    setExtractionMessage('Preparing document...');
+    setExtractionEtaMs(null);
+    setEstimatedTotalMs(null);
 
     try {
       // Upload PDF to Supabase Storage and create import job
@@ -261,13 +271,36 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
       }
       
       console.log(`✅ [Extraction] Extracted ${processResult.pages.length} pages`);
+
+      const batchCount = Math.max(1, Math.ceil(processResult.pages.length / 3));
+      const initialEstimateMs = Math.max(2 * 60_000, batchCount * 45_000);
+      const extractionStartedAt = Date.now();
+
+      setEstimatedTotalMs(initialEstimateMs);
+      setExtractionEtaMs(initialEstimateMs);
+      setExtractionProgress(5);
+      setExtractionMessage(
+        `Analyzing ${processResult.pages.length} pages in ${batchCount} batches...`,
+      );
       
       // Then extract family data from the processed pages
       console.log('🤖 [Extraction] Running AI extraction...');
       const extractResult = await extractFamilyDataFromPDF(
         processResult.pages,
         importJobId,
-        familyId
+        familyId,
+        (progress) => {
+          setExtractionProgress(progress.progress);
+          setExtractionMessage(progress.message);
+
+          const elapsed = Date.now() - extractionStartedAt;
+          if (progress.progress >= 100) {
+            setExtractionEtaMs(0);
+          } else if (progress.progress >= 10 && elapsed > 5_000) {
+            const estimatedTotal = (elapsed / progress.progress) * 100;
+            setExtractionEtaMs(Math.max(0, estimatedTotal - elapsed));
+          }
+        },
       );
       
       console.log('🤖 [Extraction] Extraction result:', extractResult);
@@ -315,6 +348,12 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
     }
   };
 
+  const formatDuration = (ms: number): string => {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds}s`;
+    return `${Math.ceil(seconds / 60)} min`;
+  };
+
   // Format file size
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -350,18 +389,47 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
             </h3>
             <p className="text-gray-600 mb-4">
               Our AI is extracting family members, relationships, and genealogical data from your PDF.
-              This may take several minutes for large documents.
+              {estimatedTotalMs
+                ? ` Estimated time: about ${formatDuration(estimatedTotalMs)}; the estimate updates as batches complete.`
+                : ' This may take several minutes for large documents.'}
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left space-y-2">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left space-y-3">
               <div className="flex items-start gap-2 text-sm text-blue-800">
                 <Loader2 size={16} className="animate-spin flex-shrink-0 mt-0.5" />
-                <span>Processing {selectedFile?.name || 'PDF'}...</span>
+                <span className="min-w-0 break-words">
+                  Processing {selectedFile?.name || 'PDF'}...
+                </span>
               </div>
+
+              <div>
+                <div className="flex items-center justify-between text-xs text-blue-800 mb-1">
+                  <span className="pr-3">{extractionMessage}</span>
+                  <span className="tabular-nums font-semibold">
+                    {Math.min(100, Math.round(extractionProgress))}%
+                  </span>
+                </div>
+                <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#285C43] transition-all duration-500"
+                    style={{ width: `${Math.min(100, extractionProgress)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-blue-600 mt-1.5">
+                  {extractionEtaMs !== null && extractionEtaMs > 0
+                    ? `About ${formatDuration(extractionEtaMs)} remaining`
+                    : extractionProgress >= 100
+                      ? 'Finishing up...'
+                      : 'Estimating remaining time...'}
+                  {' · '}
+                  Keep this tab open; times are approximate.
+                </p>
+              </div>
+
               <div className="text-xs text-blue-600 ml-6">
                 • Reading pages and extracting text
-                <br />• Running OCR on scanned pages
-                <br />• Analyzing family relationships
-                <br />• Saving results to database
+                <br />• Analyzing family relationships with AI
+                <br />• Validating and deduplicating records
+                <br />• Saving results to the review database
               </div>
             </div>
             {errorMessage && (
@@ -492,6 +560,13 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
                   <p className="text-sm text-gray-600 mt-1">
                     {formatFileSize(selectedFile.size)}
                   </p>
+                  {uploadStatus === 'idle' && (
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      Upload is quick. AI analysis can take 10-30 minutes for
+                      large genealogy PDFs; a live estimate appears during
+                      processing.
+                    </p>
+                  )}
 
                   {/* Status Indicator */}
                   {uploadStatus === 'success' && (
@@ -504,7 +579,15 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
                   {uploadStatus === 'uploading' && (
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                        <span>Uploading...</span>
+                        <span>
+                          Uploading...
+                          {selectedFile
+                            ? ` (~${Math.max(
+                                1,
+                                Math.ceil(selectedFile.size / (512 * 1024)),
+                              )}s)`
+                            : ''}
+                        </span>
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -559,6 +642,13 @@ export const ImportFamilyTreeModal: React.FC<ImportFamilyTreeModalProps> = ({
               <li className="flex items-start gap-2">
                 <span className="text-blue-600 mt-0.5">3.</span>
                 <span>After approval, the family tree will be added to {familyName}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 mt-0.5">4.</span>
+                <span>
+                  Typical AI analysis: 15-30 minutes for a 60-page PDF. The
+                  processing screen shows a live progress bar and estimate.
+                </span>
               </li>
             </ul>
           </div>
