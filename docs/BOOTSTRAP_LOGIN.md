@@ -4,6 +4,40 @@ Local development only. This creates **real Supabase Auth users** and a test
 family. Do not run it against a production project you care about without
 understanding the cleanup steps.
 
+## Current local test accounts
+
+Created 2026-11-13 for this project:
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@tiesora.test` | `Tiesora-Admin-2026!` |
+| Viewer | `viewer@tiesora.test` | `Tiesora-Viewer-2026!` |
+
+Family: **Bootstrap Test Family** (`fc5ba4da-de86-4b99-82f4-d7394abd4801`)
+
+These are real Supabase Auth users. Delete them before production.
+
+## If you do not have the service_role key
+
+Use the public sign-up bootstrap instead:
+
+```powershell
+node scripts/bootstrap-via-signup.mjs
+```
+
+It signs up the admin and viewer through Supabase Auth, creates the test family
+with the admin, and adds the viewer membership. If the live
+`accept_invitation` RPC still has the `family_id is ambiguous` bug, the script
+falls back to inserting the viewer membership directly as the admin.
+
+To fix the real invitation flow, run:
+
+```text
+supabase/migrations/20261031_APPLY_THIS_fix_invitation_ambiguity.sql
+```
+
+in the Supabase SQL Editor. That version qualifies the `ON CONFLICT` columns.
+
 ## What it creates
 
 | Account | Role | Email (default) |
