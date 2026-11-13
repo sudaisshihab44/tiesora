@@ -1,5 +1,6 @@
 import type { Relationship, RelationshipType } from '../../types';
 import { db, defined, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import {
   mapRelationship,
   normalizeRelationshipEndpoints,
@@ -13,6 +14,8 @@ export type NewRelationship = Omit<
 >;
 
 export type RelationshipUpdates = Partial<Omit<NewRelationship, 'family_id'>>;
+
+const relationshipLabel = (type: string) => type.replace(/_/g, ' ');
 
 export async function listRelationships(
   familyId: string,
@@ -54,7 +57,18 @@ export async function createRelationship(
     db().from('relationships').insert(row).select('*').single(),
     'create relationship',
   );
-  return mapRelationship(created);
+  const relationship = mapRelationship(created);
+
+  await recordAudit({
+    family_id: relationship.family_id,
+    action: 'created relationship',
+    target_type: 'relationship',
+    target_id: relationship.id,
+    target_name: relationshipLabel(relationship.relationship_type),
+    details: `Added a ${relationshipLabel(relationship.relationship_type)} link between two family members.`,
+  });
+
+  return relationship;
 }
 
 export async function updateRelationship(
@@ -118,14 +132,43 @@ export async function updateRelationship(
       .single(),
     'update relationship',
   );
-  return mapRelationship(updated);
+  const relationship = mapRelationship(updated);
+
+  await recordAudit({
+    family_id: relationship.family_id,
+    action: 'updated relationship',
+    target_type: 'relationship',
+    target_id: relationship.id,
+    target_name: relationshipLabel(relationship.relationship_type),
+    details: `Changed ${Object.keys(row).join(', ')}.`,
+  });
+
+  return relationship;
 }
 
 export async function deleteRelationship(
   relationshipId: string,
 ): Promise<void> {
+  const current = await queryOne<RelationshipRow>(
+    db()
+      .from('relationships')
+      .select('*')
+      .eq('id', relationshipId)
+      .single(),
+    'load relationship',
+  );
+
   await execute(
     db().from('relationships').delete().eq('id', relationshipId),
     'delete relationship',
   );
+
+  await recordAudit({
+    family_id: current.family_id,
+    action: 'deleted relationship',
+    target_type: 'relationship',
+    target_id: relationshipId,
+    target_name: relationshipLabel(current.relationship_type),
+    details: `Removed a ${relationshipLabel(current.relationship_type)} link.`,
+  });
 }

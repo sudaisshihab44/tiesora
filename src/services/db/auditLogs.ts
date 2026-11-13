@@ -5,8 +5,11 @@ import type { AuditLogRow } from './rows';
 
 export type NewAuditLog = Omit<
   AuditLog,
-  'id' | 'created_at' | 'user_id' | 'user_name'
->;
+  'id' | 'created_at' | 'user_id' | 'user_name' | 'target_id' | 'target_name'
+> & {
+  target_id?: string;
+  target_name?: string;
+};
 
 export async function listAuditLogs(
   familyId: string,
@@ -44,4 +47,30 @@ export async function logAudit(
     'write audit log',
   );
   return mapAuditLog(created);
+}
+
+/**
+ * Best-effort audit write for the signed-in user. Never throws: a failed audit
+ * entry must not discard a mutation that already succeeded.
+ */
+export async function recordAudit(input: NewAuditLog): Promise<void> {
+  try {
+    const { data } = await db().auth.getSession();
+    const user = data.session?.user;
+    if (!user) {
+      console.warn('[audit] skipped — no signed-in user');
+      return;
+    }
+
+    const metadata = user.user_metadata as Record<string, unknown> | undefined;
+    const displayName =
+      (typeof metadata?.display_name === 'string' && metadata.display_name) ||
+      (typeof metadata?.full_name === 'string' && metadata.full_name) ||
+      user.email ||
+      'Signed-in user';
+
+    await logAudit(input, { id: user.id, display_name: displayName });
+  } catch (error) {
+    console.warn('[audit] could not write entry:', error);
+  }
 }

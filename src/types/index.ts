@@ -200,7 +200,15 @@ export interface AuditLog {
   user_id: string;
   user_name: string;
   action: string;
-  target_type: 'person' | 'relationship' | 'memory' | 'membership' | 'family' | 'invitation';
+  target_type:
+    | 'person'
+    | 'relationship'
+    | 'memory'
+    | 'membership'
+    | 'family'
+    | 'invitation'
+    | 'event'
+    | 'change_request';
   target_id: string;
   target_name: string;
   details?: string;

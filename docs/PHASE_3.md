@@ -33,10 +33,10 @@ Status: **implemented**, pending authenticated browser verification.
 | Gap | Phase |
 |---|---|
 | Pending Supabase invitations are listed in User Management and can be regenerated or revoked. | Done — Phase 4 |
-| Audit log entries are not written by client actions in Supabase mode. The table/policies exist; DB triggers or explicit logging come next. | Phase 5 |
+| Audit log entries are written by Supabase-backed client actions, with best-effort failure handling. | Done — Phase 5 |
 | JSON restore/overwrite is disabled in Supabase mode. | Phase 9 / import pipeline |
-| `ImportReviewDashboard.tsx` still has its 53 pre-existing TypeScript errors. The PDF import review flow is the next priority because the real dataset is a PDF. | Phase 6 |
-| Real-time subscriptions are not enabled. Refresh happens after writes and on app loads. | Phase 5 |
+| `ImportReviewDashboard.tsx` is type-clean; the PDF import flow has been used successfully on the real dataset. | Done — Phase 6 |
+| Real-time subscriptions are enabled for family tables with a debounced refresh. | Done — Phase 5 |
 | Demo mode is hidden when Supabase is configured. | Phase 7 |
 
 ## Build / test status

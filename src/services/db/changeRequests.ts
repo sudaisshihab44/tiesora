@@ -1,5 +1,6 @@
 import type { ChangeRequest } from '../../types';
 import { db, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapChangeRequest } from './mappers';
 import type { ChangeRequestRow } from './rows';
 import { notifyFamilyAdmins } from './notifications';
@@ -56,6 +57,16 @@ export async function submitChangeRequest(
     db().from('change_requests').insert(row).select('*').single(),
     'submit change request',
   );
+  const changeRequest = mapChangeRequest(created);
+
+  await recordAudit({
+    family_id: changeRequest.family_id,
+    action: 'submitted change request',
+    target_type: 'change_request',
+    target_id: changeRequest.id,
+    target_name: changeRequest.change_type.replace(/_/g, ' '),
+    details: `${actor.display_name} suggested a change to family records.`,
+  });
 
   // Best-effort notification for admins. A notification failure must not
   // discard a successfully submitted change request.
@@ -71,7 +82,7 @@ export async function submitChangeRequest(
     console.warn('[db] change request saved, admin notification failed:', error);
   }
 
-  return mapChangeRequest(created);
+  return changeRequest;
 }
 
 const PERSON_UPDATE_FIELDS = [
@@ -118,7 +129,6 @@ export async function reviewChangeRequest(
       current.payload && typeof current.payload === 'object'
         ? (current.payload as Record<string, unknown>)
         : {};
-
     if (current.person_id && current.change_type === 'edit_person') {
       const updates = Object.fromEntries(
         Object.entries(payload).filter(([key]) =>
@@ -155,5 +165,21 @@ export async function reviewChangeRequest(
     }
   }
 
-  return mapChangeRequest(updated);
+  const reviewed = mapChangeRequest(updated);
+
+  await recordAudit({
+    family_id: reviewed.family_id,
+    action:
+      decision === 'approved'
+        ? 'approved change request'
+        : 'rejected change request',
+    target_type: 'change_request',
+    target_id: reviewed.id,
+    target_name: reviewed.change_type.replace(/_/g, ' '),
+    details:
+      reviewNote?.trim() ||
+      `${reviewer.display_name} ${decision} the suggested change.`,
+  });
+
+  return reviewed;
 }

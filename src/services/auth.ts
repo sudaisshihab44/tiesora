@@ -436,7 +436,24 @@ export async function acceptInvitation(
   if (error) return { ok: false, error: error.message };
 
   const row = Array.isArray(data) ? data[0] : data;
-  return { ok: true, familyId: row?.family_id };
+  const familyId = row?.family_id as string | undefined;
+
+  if (familyId) {
+    try {
+      const { recordAudit } = await import('./db/auditLogs');
+      await recordAudit({
+        family_id: familyId,
+        action: 'accepted invitation',
+        target_type: 'invitation',
+        target_name: userName,
+        details: 'Accepted an invitation and joined the family.',
+      });
+    } catch (auditError) {
+      console.warn('[auth] invitation accepted, audit write failed:', auditError);
+    }
+  }
+
+  return { ok: true, familyId };
 }
 
 // ─── Internal: fetch profile row ─────────────────────────────────────────────

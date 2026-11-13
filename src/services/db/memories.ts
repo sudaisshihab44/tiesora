@@ -1,5 +1,6 @@
 import type { Memory } from '../../types';
 import { db, defined, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapMemory, toDbDate } from './mappers';
 import type { MemoryRow } from './rows';
 
@@ -44,7 +45,18 @@ export async function createMemory(
     db().from('memories').insert(row).select('*').single(),
     'create memory',
   );
-  return mapMemory(created);
+  const memory = mapMemory(created);
+
+  await recordAudit({
+    family_id: memory.family_id,
+    action: 'created memory',
+    target_type: 'memory',
+    target_id: memory.id,
+    target_name: memory.title,
+    details: `Added a memory${memory.location ? ` from ${memory.location}` : ''}.`,
+  });
+
+  return memory;
 }
 
 export async function updateMemory(
@@ -91,12 +103,37 @@ export async function updateMemory(
       .single(),
     'update memory',
   );
-  return mapMemory(updated);
+  const memory = mapMemory(updated);
+
+  await recordAudit({
+    family_id: memory.family_id,
+    action: 'updated memory',
+    target_type: 'memory',
+    target_id: memory.id,
+    target_name: memory.title,
+    details: `Changed ${Object.keys(row).join(', ')}.`,
+  });
+
+  return memory;
 }
 
 export async function deleteMemory(memoryId: string): Promise<void> {
+  const current = await queryOne<MemoryRow>(
+    db().from('memories').select('*').eq('id', memoryId).single(),
+    'load memory',
+  );
+
   await execute(
     db().from('memories').delete().eq('id', memoryId),
     'delete memory',
   );
+
+  await recordAudit({
+    family_id: current.family_id,
+    action: 'deleted memory',
+    target_type: 'memory',
+    target_id: memoryId,
+    target_name: current.title,
+    details: `Removed the memory "${current.title}".`,
+  });
 }

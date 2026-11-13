@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { storage } from './services/storage';
 import { getSessionUser, onAuthStateChange, signOut, getRoleFromDB } from './services/auth';
 import { isSupabaseConfigured } from './services/supabase';
+import { subscribeToFamilyChanges } from './services/realtime';
 import * as db from './services/db';
 import { deletePersonAction, deleteRelationshipAction } from './services/dataActions';
 import {
@@ -385,6 +386,24 @@ export default function App() {
       void refreshAll();
     }
   }, [authView, currentUser?.id, refreshAll]);
+
+  // Live collaboration: refresh when another signed-in member changes this
+  // family. Subscriptions are collapsed/debounced inside the service.
+  useEffect(() => {
+    if (
+      !isSupabaseConfigured ||
+      authView !== 'app' ||
+      !dataLoaded ||
+      !currentUser?.id ||
+      !currentFamily?.id
+    ) {
+      return;
+    }
+
+    return subscribeToFamilyChanges(currentFamily.id, () => {
+      void refreshAll();
+    });
+  }, [authView, dataLoaded, currentUser?.id, currentFamily?.id, refreshAll]);
 
   // ── Tab resolution — redirect viewers off admin-only tabs ─────────────────
   const resolvedTab = (() => {

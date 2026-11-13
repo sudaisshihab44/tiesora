@@ -1,5 +1,6 @@
 import type { FamilyEvent } from '../../types';
 import { DbError, db, defined, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapEvent, toDbDate } from './mappers';
 import type { EventRow } from './rows';
 
@@ -46,7 +47,18 @@ export async function createEvent(
     db().from('events').insert(row).select('*').single(),
     'create event',
   );
-  return mapEvent(created);
+  const event = mapEvent(created);
+
+  await recordAudit({
+    family_id: event.family_id,
+    action: 'created event',
+    target_type: 'event',
+    target_id: event.id,
+    target_name: event.title,
+    details: `Scheduled "${event.title}" on ${event.event_date}.`,
+  });
+
+  return event;
 }
 
 export async function updateEvent(
@@ -93,12 +105,37 @@ export async function updateEvent(
       .single(),
     'update event',
   );
-  return mapEvent(updated);
+  const event = mapEvent(updated);
+
+  await recordAudit({
+    family_id: event.family_id,
+    action: 'updated event',
+    target_type: 'event',
+    target_id: event.id,
+    target_name: event.title,
+    details: `Changed ${Object.keys(row).join(', ')}.`,
+  });
+
+  return event;
 }
 
 export async function deleteEvent(eventId: string): Promise<void> {
+  const current = await queryOne<EventRow>(
+    db().from('events').select('*').eq('id', eventId).single(),
+    'load event',
+  );
+
   await execute(
     db().from('events').delete().eq('id', eventId),
     'delete event',
   );
+
+  await recordAudit({
+    family_id: current.family_id,
+    action: 'deleted event',
+    target_type: 'event',
+    target_id: eventId,
+    target_name: current.title,
+    details: `Removed the event "${current.title}".`,
+  });
 }

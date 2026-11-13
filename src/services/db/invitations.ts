@@ -1,6 +1,7 @@
 import type { Invitation, Role } from '../../types';
 import { normalizeRole } from '../../types';
 import { DbError, db, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapInvitation } from './mappers';
 import type { InvitationRow } from './rows';
 
@@ -44,6 +45,15 @@ export async function createInvitationToken(
   if (!row?.token) {
     throw new DbError('create invitation: the RPC did not return a token');
   }
+
+  await recordAudit({
+    family_id: familyId,
+    action: 'created invitation',
+    target_type: 'invitation',
+    target_name: email.trim().toLowerCase(),
+    details: `${role} invitation valid for ${expiresInDays} day${expiresInDays === 1 ? '' : 's'}.`,
+  });
+
   return row.token as string;
 }
 
@@ -89,7 +99,17 @@ export async function acceptInvitationToken(
   if (!row?.family_id) {
     throw new DbError('accept invitation: the RPC did not return a family id');
   }
-  return row.family_id as string;
+  const familyId = row.family_id as string;
+
+  await recordAudit({
+    family_id: familyId,
+    action: 'accepted invitation',
+    target_type: 'invitation',
+    target_name: userName || email,
+    details: 'Accepted an invitation and joined the family.',
+  });
+
+  return familyId;
 }
 
 export async function revokeInvitation(
@@ -104,7 +124,18 @@ export async function revokeInvitation(
       .single(),
     'revoke invitation',
   );
-  return mapInvitation(updated);
+  const invitation = mapInvitation(updated);
+
+  await recordAudit({
+    family_id: invitation.family_id,
+    action: 'revoked invitation',
+    target_type: 'invitation',
+    target_id: invitation.id,
+    target_name: invitation.email,
+    details: `Revoked the pending ${invitation.role} invitation.`,
+  });
+
+  return invitation;
 }
 
 export async function deleteInvitation(invitationId: string): Promise<void> {

@@ -1,5 +1,6 @@
 import type { Family, PrivacySettings } from '../../types';
 import { DbError, db, defined, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { DEFAULT_PRIVACY_SETTINGS, mapFamily } from './mappers';
 import type { FamilyRow } from './rows';
 
@@ -49,7 +50,18 @@ export async function createFamilyWithAdmin(input: NewFamily): Promise<Family> {
   if (error) throw new DbError('create family', error);
 
   const createdId = typeof data === 'string' && data ? data : familyId;
-  return getFamily(createdId);
+  const family = await getFamily(createdId);
+
+  await recordAudit({
+    family_id: family.id,
+    action: 'created family',
+    target_type: 'family',
+    target_id: family.id,
+    target_name: family.name,
+    details: `Created the family workspace "${family.name}".`,
+  });
+
+  return family;
 }
 
 export async function updateFamily(
@@ -79,7 +91,18 @@ export async function updateFamily(
       .single(),
     'update family',
   );
-  return mapFamily(updated);
+  const family = mapFamily(updated);
+
+  await recordAudit({
+    family_id: family.id,
+    action: 'updated family settings',
+    target_type: 'family',
+    target_id: family.id,
+    target_name: family.name,
+    details: `Changed ${Object.keys(row).join(', ')}.`,
+  });
+
+  return family;
 }
 
 export async function deleteFamily(familyId: string): Promise<void> {

@@ -1,5 +1,6 @@
 import type { FamilyPerson } from '../../types';
 import { db, defined, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapPerson, toDbDate } from './mappers';
 import type { PersonRow } from './rows';
 
@@ -57,7 +58,18 @@ export async function createPerson(
     db().from('family_people').insert(row).select('*').single(),
     'create person',
   );
-  return mapPerson(created);
+  const person = mapPerson(created);
+
+  await recordAudit({
+    family_id: person.family_id,
+    action: 'created person',
+    target_type: 'person',
+    target_id: person.id,
+    target_name: person.display_name,
+    details: `Added ${person.display_name} to generation ${person.generation_level}.`,
+  });
+
+  return person;
 }
 
 export async function updatePerson(
@@ -114,12 +126,34 @@ export async function updatePerson(
       .single(),
     'update person',
   );
-  return mapPerson(updated);
+  const person = mapPerson(updated);
+
+  await recordAudit({
+    family_id: person.family_id,
+    action: 'updated person',
+    target_type: 'person',
+    target_id: person.id,
+    target_name: person.display_name,
+    details: `Changed ${Object.keys(row).join(', ')}.`,
+  });
+
+  return person;
 }
 
 export async function deletePerson(personId: string): Promise<void> {
+  const person = await getPerson(personId);
+
   await execute(
     db().from('family_people').delete().eq('id', personId),
     'delete person',
   );
+
+  await recordAudit({
+    family_id: person.family_id,
+    action: 'deleted person',
+    target_type: 'person',
+    target_id: person.id,
+    target_name: person.display_name,
+    details: `Removed ${person.display_name} from the tree.`,
+  });
 }

@@ -1,6 +1,7 @@
 import type { FamilyMembership, Role } from '../../types';
 import { normalizeRole } from '../../types';
 import { db, execute, queryMany, queryOne } from './core';
+import { recordAudit } from './auditLogs';
 import { mapMembership } from './mappers';
 import type { MembershipRow } from './rows';
 
@@ -80,7 +81,18 @@ export async function updateMemberRole(
       .single(),
     'update member role',
   );
-  return mapMembership(updated);
+  const membership = mapMembership(updated);
+
+  await recordAudit({
+    family_id: membership.family_id,
+    action: 'changed member role',
+    target_type: 'membership',
+    target_id: membership.id,
+    target_name: membership.user_name || membership.user_email,
+    details: `Role changed to ${membership.role}.`,
+  });
+
+  return membership;
 }
 
 /** Revokes access without deleting the audit trail. */
@@ -96,12 +108,41 @@ export async function revokeMembership(
       .single(),
     'revoke membership',
   );
-  return mapMembership(updated);
+  const membership = mapMembership(updated);
+
+  await recordAudit({
+    family_id: membership.family_id,
+    action: 'revoked member access',
+    target_type: 'membership',
+    target_id: membership.id,
+    target_name: membership.user_name || membership.user_email,
+    details: `Suspended ${membership.user_name || membership.user_email}'s access.`,
+  });
+
+  return membership;
 }
 
 export async function deleteMembership(membershipId: string): Promise<void> {
+  const current = await queryOne<MembershipRow>(
+    db()
+      .from('family_memberships')
+      .select('*')
+      .eq('id', membershipId)
+      .single(),
+    'load membership',
+  );
+
   await execute(
     db().from('family_memberships').delete().eq('id', membershipId),
     'delete membership',
   );
+
+  await recordAudit({
+    family_id: current.family_id,
+    action: 'deleted membership',
+    target_type: 'membership',
+    target_id: membershipId,
+    target_name: current.user_name || current.user_email || 'Former member',
+    details: `Removed the membership for ${current.user_name || current.user_email || 'a family member'}.`,
+  });
 }
