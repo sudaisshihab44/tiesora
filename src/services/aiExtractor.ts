@@ -209,6 +209,7 @@ CRITICAL: Return ONLY the JSON object. No additional text, no explanations, no m
 async function callAIExtractionAPI(
   prompt: string,
   familyId: string,
+  attempt = 1,
 ): Promise<ExtractionResult> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
@@ -229,6 +230,25 @@ async function callAIExtractionAPI(
         // keep the original message
       }
     }
+
+    // Gemini's free tier is ~15 RPM. Retry transient rate-limit responses
+    // instead of losing the whole batch. Do not retry payload-size errors.
+    const isTransientRateLimit =
+      /(?:^|\D)429(?:\D|$)|resource_exhausted|too many requests|rate limit/i.test(
+        message,
+      ) && !/413|request too large/i.test(message);
+
+    if (isTransientRateLimit && attempt < 4) {
+      const waitMs = attempt * 15_000;
+      console.warn(
+        `[AI] Rate limited (attempt ${attempt}); retrying in ${Math.round(
+          waitMs / 1000,
+        )}s...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      return callAIExtractionAPI(prompt, familyId, attempt + 1);
+    }
+
     throw new Error(message);
   }
 
@@ -242,7 +262,8 @@ async function callAIExtractionAPI(
 
 /**
  * Parse AI response into ExtractionResult.
- */function parseExtractionResponse(text: string): ExtractionResult {
+ */
+function parseExtractionResponse(text: string): ExtractionResult {
   console.log(`ðŸ¤– [Parser] Parsing AI response...`);
   console.log(`ðŸ¤– [Parser] Raw response length: ${text.length} characters`);
   console.log(`ðŸ¤– [Parser] First 300 chars:\n"${text.substring(0, 300)}"`);

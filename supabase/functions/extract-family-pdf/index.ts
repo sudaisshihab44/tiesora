@@ -8,6 +8,7 @@
 //   GROQ_API_KEY   (preferred)  or  GEMINI_API_KEY
 //
 // Optional secrets:
+//   AI_PROVIDER    'gemini' or 'groq' (defaults to gemini when GEMINI_API_KEY is set)
 //   GROQ_MODEL     default: openai/gpt-oss-120b
 //   GEMINI_MODEL   default: gemini-2.0-flash
 //
@@ -166,8 +167,20 @@ serve(async (req) => {
 
     const groqKey = Deno.env.get('GROQ_API_KEY');
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const configuredProvider = (Deno.env.get('AI_PROVIDER') || '').toLowerCase();
+    const provider = configuredProvider || (geminiKey ? 'gemini' : 'groq');
 
-    if (!groqKey && !geminiKey) {
+    if (provider === 'gemini') {
+      if (!geminiKey) {
+        return json(
+          {
+            error:
+              'AI_PROVIDER=gemini but GEMINI_API_KEY is not set as a Supabase Edge Function secret.',
+          },
+          500,
+        );
+      }
+    } else if (!groqKey) {
       return json(
         {
           error:
@@ -177,9 +190,10 @@ serve(async (req) => {
       );
     }
 
-    const text = groqKey
-      ? await callGroq(prompt, groqKey)
-      : await callGemini(prompt, geminiKey!);
+    const text =
+      provider === 'gemini'
+        ? await callGemini(prompt, geminiKey!)
+        : await callGroq(prompt, groqKey!);
 
     if (!text.trim()) {
       return json({ error: 'AI provider returned an empty response' }, 502);
