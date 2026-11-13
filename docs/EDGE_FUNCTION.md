@@ -50,7 +50,7 @@ npx supabase secrets set GROQ_API_KEY=gsk_...
 Optional:
 
 ```powershell
-npx supabase secrets set GROQ_MODEL=llama-3.1-70b-versatile
+npx supabase secrets set GROQ_MODEL=openai/gpt-oss-120b
 # or
 npx supabase secrets set GEMINI_API_KEY=...
 npx supabase secrets set GEMINI_MODEL=gemini-2.0-flash

@@ -128,7 +128,7 @@ async function test4_GroqAPI() {
         'Authorization': `Bearer ${groqApiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [{ role: 'user', content: 'Say "API test successful"' }],
         max_tokens: 20,
         temperature: 0.1

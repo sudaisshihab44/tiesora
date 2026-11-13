@@ -8,7 +8,7 @@
 //   GROQ_API_KEY   (preferred)  or  GEMINI_API_KEY
 //
 // Optional secrets:
-//   GROQ_MODEL     default: llama-3.1-70b-versatile
+//   GROQ_MODEL     default: openai/gpt-oss-120b
 //   GEMINI_MODEL   default: gemini-2.0-flash
 //
 // Deploy:
@@ -41,7 +41,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 async function callGroq(prompt: string, apiKey: string): Promise<string> {
-  const model = Deno.env.get('GROQ_MODEL') || 'llama-3.1-70b-versatile';
+  const model = Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b';
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',

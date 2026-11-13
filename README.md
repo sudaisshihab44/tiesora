@@ -25,7 +25,7 @@ Tiesora is a modern, beautifully designed family tree application that helps you
 - **Styling**: Tailwind CSS 4 + Motion animations
 - **Authentication**: Supabase Auth
 - **Database**: Supabase (PostgreSQL with RLS)
-- **AI**: Groq API (llama-3.1-70b-versatile) for PDF extraction
+- **AI**: Groq API (openai/gpt-oss-120b) for PDF extraction
 - **File Storage**: Supabase Storage
 - **Deployment**: Vercel
 
