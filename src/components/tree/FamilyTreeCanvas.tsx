@@ -46,6 +46,18 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
+  // Large trees are much faster in the directory list. Switch once when the
+  // data arrives, while still letting the user open the canvas manually.
+  const LARGE_FAMILY_THRESHOLD = 400;
+  const isLargeFamily = people.length > LARGE_FAMILY_THRESHOLD;
+  const autoSwitchedToLargeView = useRef(false);
+  useEffect(() => {
+    if (isLargeFamily && !autoSwitchedToLargeView.current) {
+      autoSwitchedToLargeView.current = true;
+      setViewMode('list');
+    }
+  }, [isLargeFamily]);
+
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
 
@@ -318,6 +330,12 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                 <p className="text-xs text-stone-500 mt-0.5">
                   {people.length} members across {layout.generationLevels.length} generations.
                 </p>
+                {isLargeFamily && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2 inline-block">
+                    Large family: list view is the fastest way to browse. Use the
+                    Tree button when you need the canvas.
+                  </p>
+                )}
               </div>
               {onAddRelative && (
               <button

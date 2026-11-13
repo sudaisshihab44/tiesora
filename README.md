@@ -25,7 +25,7 @@ Tiesora is a modern, beautifully designed family tree application that helps you
 - **Styling**: Tailwind CSS 4 + Motion animations
 - **Authentication**: Supabase Auth
 - **Database**: Supabase (PostgreSQL with RLS)
-- **AI**: Groq API (openai/gpt-oss-120b) for PDF extraction
+- **AI**: Gemini (primary) + Groq fallback, called through a Supabase Edge Function
 - **File Storage**: Supabase Storage
 - **Deployment**: Vercel
 
@@ -34,7 +34,10 @@ Tiesora is a modern, beautifully designed family tree application that helps you
 - Node.js 18 or higher
 - npm or bun package manager
 - Supabase account (free tier works)
-- Groq API key (for PDF import feature)
+- Gemini and/or Groq API key for the PDF-import Edge Function
+
+**Security:** provider keys belong in Supabase Edge Function secrets. Never put
+them in a `VITE_*` variable — those are bundled into the browser.
 
 ## 🛠️ Local Development Setup
 
@@ -42,7 +45,7 @@ Tiesora is a modern, beautifully designed family tree application that helps you
 
 ```bash
 git clone <your-repo-url>
-cd kinroots
+cd tiesora-master
 ```
 
 ### 2. Install dependencies
@@ -65,16 +68,17 @@ Fill in your environment variables:
 # Supabase Configuration (required)
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Groq AI for PDF Import (required for PDF feature)
-VITE_GROQ_API_KEY=your_groq_api_key
-
-# Gemini AI (optional fallback)
-VITE_GEMINI_API_KEY=your_gemini_api_key
-
-# App URL (auto-configured in production)
 VITE_APP_URL=http://localhost:3000
 ```
+
+AI provider keys are **not** browser environment variables. Set them as
+Supabase Edge Function secrets:
+
+```bash
+supabase secrets set AI_PROVIDER=gemini GEMINI_API_KEY=... GROQ_API_KEY=...
+```
+
+See `docs/SETUP.md` and `docs/EDGE_FUNCTION.md` for the full list.
 
 #### Getting API Keys:
 
@@ -84,38 +88,25 @@ VITE_APP_URL=http://localhost:3000
 3. Go to Settings → API
 4. Copy the URL and anon/public key
 
-**Groq:**
+**Gemini:**
+1. Go to [aistudio.google.com](https://aistudio.google.com/app/apikey)
+2. Create an API key
+3. Store it as the `GEMINI_API_KEY` Edge Function secret
+
+**Groq (fallback):**
 1. Go to [console.groq.com](https://console.groq.com)
-2. Sign up and create an API key
-3. Copy the key starting with `gsk_`
+2. Create an API key
+3. Store it as the `GROQ_API_KEY` Edge Function secret
 
 ### 4. Set up Supabase Database
 
-Run the migration SQL scripts in your Supabase SQL Editor:
+Apply the migrations in `supabase/migrations/` in filename order. The full
+current list and validation steps are in `docs/SETUP.md`.
 
-```sql
--- Run these files in order:
--- 1. supabase/migrations/20261023_init_kinroots.sql
--- 2. supabase/migrations/20261026_admin_viewer_roles.sql
--- 3. supabase/migrations/20261027_fix_rls_and_bootstrap.sql
--- 4. supabase/migrations/20261101_pdf_import_system.sql
--- 5. supabase/migrations/20261102_create_storage_bucket.sql
-```
+### 5. Storage Buckets
 
-Or use the combined file:
-```sql
--- supabase/migrations/APPLY_TO_SUPABASE.sql
-```
-
-### 5. Create Storage Bucket
-
-In Supabase Dashboard → Storage:
-1. Click "New bucket"
-2. Name: `family-import-pdfs`
-3. Public: No (private)
-4. Click "Create bucket"
-
-Or run the SQL from `20261102_create_storage_bucket.sql`
+The migrations create the private `family-import-pdfs` and `family-photos`
+buckets. No manual bucket creation is normally needed.
 
 ### 6. Start development server
 
@@ -166,8 +157,6 @@ In Vercel Dashboard → Settings → Environment Variables, add:
 ```
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_GROQ_API_KEY=your_groq_api_key
-VITE_GEMINI_API_KEY=your_gemini_api_key (optional)
 VITE_APP_URL=https://your-domain.vercel.app
 ```
 
@@ -193,7 +182,7 @@ In Vercel → Settings → Domains:
 ## 📁 Project Structure
 
 ```
-kinroots/
+tiesora-master/
 ├── public/              # Static assets
 ├── src/
 │   ├── components/      # React components
@@ -212,7 +201,8 @@ kinroots/
 │   │   └── tree/        # Family tree canvas
 │   ├── services/        # API and data services
 │   │   ├── auth.ts      # Supabase authentication
-│   │   ├── storage.ts   # LocalStorage + Supabase sync
+│   │   ├── db/          # Typed Supabase data layer (source of truth)
+│   │   ├── storage.ts   # UI preferences / local demo session only
 │   │   ├── supabase.ts  # Supabase client
 │   │   ├── aiExtractor.ts # PDF AI extraction
 │   │   └── pdfProcessor.ts # PDF text extraction
@@ -271,11 +261,8 @@ Tiesora is a Progressive Web App that can be installed:
 ## 🐛 Troubleshooting
 
 ### Build fails with TypeScript errors
-The project has non-blocking TypeScript errors in `ImportReviewDashboard.tsx`. These don't prevent the build from succeeding. Run:
-```bash
-npm run build
-```
-If it completes successfully, you can deploy.
+Run `npm run lint` first. The project is currently type-clean; any errors are
+real and should be fixed before deploying.
 
 ### White screen after deployment
 1. Check browser console for errors
@@ -284,14 +271,25 @@ If it completes successfully, you can deploy.
 4. Clear browser cache and hard refresh
 
 ### PDF import not working
-1. Verify `VITE_GROQ_API_KEY` is set
-2. Check storage bucket `family-import-pdfs` exists in Supabase
-3. Verify RLS policies are applied (run migration SQL)
+1. Verify the `extract-family-pdf` Edge Function is deployed and ACTIVE
+2. Check its secrets: `GEMINI_API_KEY` / `GROQ_API_KEY`
+3. Check the private `family-import-pdfs` bucket exists
+4. Inspect the import job row in `family_import_jobs` for `processing_error`
 
 ### Authentication issues
 1. Check Supabase project is not paused (free tier auto-pauses after 1 week inactivity)
 2. Verify Site URL and Redirect URLs in Supabase auth settings
 3. Check email confirmation settings match your workflow
+
+## 📚 Documentation
+
+- [Setup](docs/SETUP.md) — local environment, migrations, Edge secrets
+- [Authentication & invitations](docs/AUTH.md)
+- [PDF import](docs/PDF_IMPORT.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Edge Function](docs/EDGE_FUNCTION.md)
+- [Data layer](docs/DATA_LAYER.md)
+- [Implementation history](docs/BASELINE.md) and `docs/PHASE_*.md`
 
 ## 📄 License
 

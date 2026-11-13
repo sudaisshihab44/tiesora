@@ -12,7 +12,8 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { storage } from './storage';
-import type { UserProfile } from '../types';
+import { recordAudit } from './db/auditLogs';
+import { normalizeRole, type UserProfile } from '../types';
 
 export type AuthResult =
   | { ok: true; user: UserProfile }
@@ -250,7 +251,6 @@ export async function getRoleFromDB(userId: string): Promise<{
   }
   if (!data) return null;     // no active membership
 
-  const { normalizeRole } = await import('../types');
   const role = normalizeRole(data.role);
 
   return { role, familyId: data.family_id, familyName: '' };
@@ -440,7 +440,6 @@ export async function acceptInvitation(
 
   if (familyId) {
     try {
-      const { recordAudit } = await import('./db/auditLogs');
       await recordAudit({
         family_id: familyId,
         action: 'accepted invitation',
