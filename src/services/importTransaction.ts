@@ -55,8 +55,8 @@ export async function executeImportTransaction(
 
     if (jobError) throw new Error(`Failed to load import job: ${jobError.message}`);
     if (!job) throw new Error('Import job not found');
-    if (job.status !== 'ready_to_import') {
-      throw new Error(`Import job is not ready (status: ${job.status})`);
+    if (job.status !== 'approved' && job.status !== 'processed') {
+      throw new Error(`Import job is not approved (status: ${job.status})`);
     }
 
     // Call PostgreSQL function to perform atomic import

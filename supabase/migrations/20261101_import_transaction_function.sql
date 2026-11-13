@@ -1,6 +1,10 @@
 -- Migration: Create atomic import transaction function
 -- This function handles the secure, atomic import of approved family data
 -- from staging tables into the main family database
+--
+-- SUPERSEDED by 20261113_fix_import_transaction.sql. The original body below
+-- references columns/statuses that do not exist in the live schema. Run the
+-- 20261113 migration after this file (or instead of it on an existing DB).
 
 CREATE OR REPLACE FUNCTION import_approved_family_data(
   p_job_id UUID,

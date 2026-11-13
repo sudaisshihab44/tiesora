@@ -15,7 +15,7 @@ import {
   HelpCircle,
   Download,
 } from 'lucide-react';
-import { supabase } from '../../services/supabase';
+import { db } from '../../services/db/core';
 import {
   ExtractedFamilyMember,
   ExtractedRelationship,
@@ -56,6 +56,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
   onClose,
   onApprove,
 }) => {
+  const supabase = db();
   const [activeTab, setActiveTab] = useState<TabType>('members');
   const [job, setJob] = useState<FamilyImportJob | null>(null);
   const [members, setMembers] = useState<EditingMember[]>([]);
@@ -67,6 +68,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [mergeMode, setMergeMode] = useState(false);
   const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadReviewData();
@@ -82,6 +84,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
       console.log('🔍 [ImportReview] Current user ID:', user?.id);
 
       // Load job details
@@ -103,7 +106,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
       }
       
       console.log('✅ [ImportReview] Job loaded:', jobData);
-      setJob(jobData);
+      setJob(jobData as FamilyImportJob);
 
       // Load extracted members
       console.log('🔍 [ImportReview] Querying extracted_family_members...');
@@ -125,7 +128,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
       }
 
       console.log('✅ [ImportReview] Members loaded:', membersData?.length || 0, 'records');
-      setMembers(membersData || []);
+      setMembers((membersData || []) as EditingMember[]);
 
       // Load extracted relationships
       console.log('🔍 [ImportReview] Querying extracted_relationships...');
@@ -146,7 +149,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
       }
 
       console.log('✅ [ImportReview] Relationships loaded:', relationshipsData?.length || 0, 'records');
-      setRelationships(relationshipsData || []);
+      setRelationships((relationshipsData || []) as EditingRelationship[]);
 
       // Load conflicts
       console.log('🔍 [ImportReview] Querying import_conflicts...');
@@ -154,8 +157,8 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
         .from('import_conflicts')
         .select('*')
         .eq('import_job_id', jobId)
-        .eq('resolved', false)
-        .order('severity', { ascending: false });
+        .eq('resolution_status', 'pending')
+        .order('created_at', { ascending: false });
 
       if (conflictsError) {
         console.error('❌ [ImportReview] Conflicts query error:', {
@@ -170,7 +173,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
         console.log('✅ [ImportReview] Conflicts loaded:', conflictsData?.length || 0, 'records');
       }
       
-      setConflicts(conflictsData || []);
+      setConflicts((conflictsData || []) as ImportConflict[]);
       
       console.log('✅ [ImportReview] All data loaded successfully');
     } catch (err) {
@@ -183,45 +186,71 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
     }
   };
 
+  const recordReviewHistory = async (
+    action: string,
+    targetType: 'person' | 'relationship' | 'conflict' | 'job',
+    targetId: string | null,
+    changes?: unknown,
+    notes?: string,
+  ) => {
+    if (!currentUserId) return;
+
+    const { error } = await supabase.from('import_review_history').insert({
+      import_job_id: jobId,
+      reviewed_by: currentUserId,
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      changes: changes ?? null,
+      notes: notes ?? null,
+    });
+
+    if (error) {
+      console.warn('[ImportReview] Could not write review history:', error.message);
+    }
+  };
+
   const handleUpdateMember = async (memberId: string, updates: Partial<ExtractedFamilyMember>) => {
     try {
       setSaving(true);
 
+      const dbUpdates: Partial<ExtractedFamilyMember> = { ...updates };
+      delete (dbUpdates as { isEditing?: boolean }).isEditing;
+
       // Recalculate confidence if data changed
       const member = members.find(m => m.id === memberId);
       if (member) {
-        const updatedMember = { ...member, ...updates };
-        const newConfidence = calculatePersonConfidence(updatedMember);
-        updates.confidence_score = newConfidence;
+        const updatedMember = { ...member, ...dbUpdates };
+        const metrics = calculatePersonConfidence(updatedMember);
+        dbUpdates.confidence_score = metrics.overall;
 
         // Auto-update verification status based on new confidence
-        if (newConfidence >= 0.90) {
-          updates.verification_status = 'verified';
-        } else if (newConfidence >= 0.60) {
-          updates.verification_status = 'needs_review';
+        if (metrics.overall >= 0.9) {
+          dbUpdates.verification_status = 'verified';
+        } else if (metrics.overall >= 0.6) {
+          dbUpdates.verification_status = 'needs_review';
         }
       }
 
       const { error } = await supabase
         .from('extracted_family_members')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', memberId);
 
       if (error) throw error;
 
       // Update local state
       setMembers(prev =>
-        prev.map(m => (m.id === memberId ? { ...m, ...updates, isEditing: false } : m))
+        prev.map(m => (m.id === memberId ? { ...m, ...dbUpdates, isEditing: false } : m))
       );
 
-      // Record review history
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'edit_person',
-        entity_id: memberId,
-        changes: updates,
-        notes: 'Manual edit by admin',
-      });
+      await recordReviewHistory(
+        'person_edited',
+        'person',
+        memberId,
+        dbUpdates,
+        'Manual edit by admin',
+      );
     } catch (err) {
       console.error('Error updating member:', err);
       setError(err instanceof Error ? err.message : 'Failed to update member');
@@ -237,38 +266,51 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
     try {
       setSaving(true);
 
+      const dbUpdates: Partial<ExtractedRelationship> = { ...updates };
+      delete (dbUpdates as { isEditing?: boolean }).isEditing;
+
       // Recalculate confidence if data changed
       const relationship = relationships.find(r => r.id === relationshipId);
       if (relationship) {
-        const updatedRelationship = { ...relationship, ...updates };
-        const newConfidence = calculateRelationshipConfidence(updatedRelationship, members);
-        updates.confidence_score = newConfidence;
+        const updatedRelationship = { ...relationship, ...dbUpdates };
+        const sourceMember = members.find(
+          m => m.id === updatedRelationship.source_extracted_id,
+        );
+        const targetMember = members.find(
+          m => m.id === updatedRelationship.target_extracted_id,
+        );
+        const newConfidence = calculateRelationshipConfidence(
+          updatedRelationship,
+          sourceMember,
+          targetMember,
+        );
+        dbUpdates.confidence_score = newConfidence;
 
         if (newConfidence >= 0.85) {
-          updates.verification_status = 'verified';
-        } else if (newConfidence >= 0.60) {
-          updates.verification_status = 'needs_review';
+          dbUpdates.verification_status = 'verified';
+        } else if (newConfidence >= 0.6) {
+          dbUpdates.verification_status = 'needs_review';
         }
       }
 
       const { error } = await supabase
         .from('extracted_relationships')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', relationshipId);
 
       if (error) throw error;
 
       setRelationships(prev =>
-        prev.map(r => (r.id === relationshipId ? { ...r, ...updates, isEditing: false } : r))
+        prev.map(r => (r.id === relationshipId ? { ...r, ...dbUpdates, isEditing: false } : r))
       );
 
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'edit_relationship',
-        entity_id: relationshipId,
-        changes: updates,
-        notes: 'Manual edit by admin',
-      });
+      await recordReviewHistory(
+        'relationship_edited',
+        'relationship',
+        relationshipId,
+        dbUpdates,
+        'Manual edit by admin',
+      );
     } catch (err) {
       console.error('Error updating relationship:', err);
       setError(err instanceof Error ? err.message : 'Failed to update relationship');
@@ -290,7 +332,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
         .from('extracted_relationships')
         .delete()
         .eq('import_job_id', jobId)
-        .or(`person1_id.eq.${memberId},person2_id.eq.${memberId}`);
+        .or(`source_extracted_id.eq.${memberId},target_extracted_id.eq.${memberId}`);
 
       // Delete the person
       const { error } = await supabase
@@ -302,15 +344,20 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
 
       setMembers(prev => prev.filter(m => m.id !== memberId));
       setRelationships(prev =>
-        prev.filter(r => r.person1_id !== memberId && r.person2_id !== memberId)
+        prev.filter(
+          r =>
+            r.source_extracted_id !== memberId &&
+            r.target_extracted_id !== memberId,
+        ),
       );
 
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'delete_person',
-        entity_id: memberId,
-        notes: 'Deleted by admin',
-      });
+      await recordReviewHistory(
+        'person_rejected',
+        'person',
+        memberId,
+        undefined,
+        'Deleted by admin',
+      );
     } catch (err) {
       console.error('Error deleting member:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete member');
@@ -336,12 +383,13 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
 
       setRelationships(prev => prev.filter(r => r.id !== relationshipId));
 
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'delete_relationship',
-        entity_id: relationshipId,
-        notes: 'Deleted by admin',
-      });
+      await recordReviewHistory(
+        'relationship_rejected',
+        'relationship',
+        relationshipId,
+        undefined,
+        'Deleted by admin',
+      );
     } catch (err) {
       console.error('Error deleting relationship:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete relationship');
@@ -359,16 +407,27 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
     try {
       setSaving(true);
 
-      const peopleToMerge = members.filter(m => selectedForMerge.includes(m.id));
-      const merged = await mergeExtractedPeople(peopleToMerge, 'prefer_higher_confidence');
+      const primaryId = selectedForMerge[0];
+      const duplicateIds = selectedForMerge.slice(1);
 
-      // Update the first selected member with merged data
-      await handleUpdateMember(selectedForMerge[0], merged);
-
-      // Delete the other members
-      for (let i = 1; i < selectedForMerge.length; i++) {
-        await handleDeleteMember(selectedForMerge[i]);
+      for (const duplicateId of duplicateIds) {
+        const result = await mergeExtractedPeople(primaryId, duplicateId, {
+          keepPrimary: false,
+          preserveAllSources: true,
+          preferHigherConfidence: true,
+        });
+        if (!result.ok) {
+          throw new Error(result.error ?? 'Failed to merge records');
+        }
       }
+
+      await recordReviewHistory(
+        'person_merged',
+        'person',
+        primaryId,
+        { mergedIds: duplicateIds },
+        'Merged duplicate records',
+      );
 
       setMergeMode(false);
       setSelectedForMerge([]);
@@ -385,17 +444,24 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
     try {
       setSaving(true);
 
-      await resolveConflict(conflict, resolution);
+      const result = await resolveConflict(
+        conflict.id,
+        'resolved',
+        `Resolution: ${resolution}`,
+      );
+      if (!result.ok) {
+        throw new Error(result.error ?? 'Failed to resolve conflict');
+      }
 
       setConflicts(prev => prev.filter(c => c.id !== conflict.id));
 
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'resolve_conflict',
-        entity_id: conflict.id,
-        changes: { resolution },
-        notes: `Conflict resolved: ${resolution}`,
-      });
+      await recordReviewHistory(
+        'conflict_resolved',
+        'conflict',
+        conflict.id,
+        { resolution },
+        `Conflict resolved: ${resolution}`,
+      );
     } catch (err) {
       console.error('Error resolving conflict:', err);
       setError(err instanceof Error ? err.message : 'Failed to resolve conflict');
@@ -431,18 +497,20 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
       const { error: updateError } = await supabase
         .from('family_import_jobs')
         .update({
-          status: 'ready_to_import',
+          status: 'approved',
           reviewed_at: new Date().toISOString(),
         })
         .eq('id', jobId);
 
       if (updateError) throw updateError;
 
-      await supabase.from('import_review_history').insert({
-        import_job_id: jobId,
-        action_type: 'approve_import',
-        notes: 'Import approved by admin',
-      });
+      await recordReviewHistory(
+        'job_approved',
+        'job',
+        jobId,
+        undefined,
+        'Import approved by admin',
+      );
 
       onApprove();
     } catch (err) {
@@ -453,7 +521,7 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
     }
   };
 
-  const getVerificationIcon = (status: VerificationStatus) => {
+  const getVerificationIcon = (status: VerificationStatus | 'conflicting') => {
     switch (status) {
       case 'verified':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
@@ -461,6 +529,8 @@ export const ImportReviewDashboard: React.FC<ImportReviewDashboardProps> = ({
         return <HelpCircle className="w-4 h-4 text-yellow-600" />;
       case 'uncertain':
         return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case 'conflicting':
+        return <AlertTriangle className="w-4 h-4 text-orange-600" />;
       default:
         return null;
     }
@@ -794,7 +864,7 @@ interface MembersTabProps {
   onToggleMergeMode: () => void;
   onToggleSelect: (id: string) => void;
   onMerge: () => void;
-  getVerificationIcon: (status: VerificationStatus) => React.ReactNode;
+  getVerificationIcon: (status: VerificationStatus | 'conflicting') => React.ReactNode;
   getConfidenceColor: (confidence: number) => string;
 }
 
@@ -821,7 +891,10 @@ const MembersTab: React.FC<MembersTabProps> = ({
 
   const handleSaveEdit = () => {
     if (editingId) {
-      onUpdate(editingId, editForm);
+      const { isEditing, ...updates } = editForm as Partial<ExtractedFamilyMember> & {
+        isEditing?: boolean;
+      };
+      onUpdate(editingId, updates);
       setEditingId(null);
       setEditForm({});
     }
@@ -890,7 +963,7 @@ const MembersTab: React.FC<MembersTabProps> = ({
                     </label>
                     <select
                       value={editForm.gender || ''}
-                      onChange={e => setEditForm({ ...editForm, gender: e.target.value })}
+                      onChange={e => setEditForm({ ...editForm, gender: e.target.value as ExtractedFamilyMember['gender'] })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="">Unknown</option>
@@ -940,8 +1013,8 @@ const MembersTab: React.FC<MembersTabProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={editForm.branch_label || ''}
-                      onChange={e => setEditForm({ ...editForm, branch_label: e.target.value })}
+                      value={editForm.branch || ''}
+                      onChange={e => setEditForm({ ...editForm, branch: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -979,10 +1052,10 @@ const MembersTab: React.FC<MembersTabProps> = ({
                       {getVerificationIcon(member.verification_status)}
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${getConfidenceColor(
-                          member.confidence_score
+                          member.confidence_score ?? 0
                         )}`}
                       >
-                        {(member.confidence_score * 100).toFixed(0)}%
+                        {((member.confidence_score ?? 0) * 100).toFixed(0)}%
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
@@ -990,10 +1063,10 @@ const MembersTab: React.FC<MembersTabProps> = ({
                       {member.birth_date && <div>Born: {member.birth_date}</div>}
                       {member.death_date && <div>Died: {member.death_date}</div>}
                       {member.generation_label && <div>Generation: {member.generation_label}</div>}
-                      {member.branch_label && <div>Branch: {member.branch_label}</div>}
+                      {member.branch && <div>Branch: {member.branch}</div>}
                     </div>
-                    {member.notes && (
-                      <p className="mt-2 text-sm text-gray-500 italic">{member.notes}</p>
+                    {member.admin_notes && (
+                      <p className="mt-2 text-sm text-gray-500 italic">{member.admin_notes}</p>
                     )}
                   </div>
                 </div>
@@ -1037,7 +1110,7 @@ interface RelationshipsTabProps {
   members: ExtractedFamilyMember[];
   onUpdate: (id: string, updates: Partial<ExtractedRelationship>) => void;
   onDelete: (id: string) => void;
-  getVerificationIcon: (status: VerificationStatus) => React.ReactNode;
+  getVerificationIcon: (status: VerificationStatus | 'conflicting') => React.ReactNode;
   getConfidenceColor: (confidence: number) => string;
 }
 
@@ -1052,7 +1125,7 @@ const RelationshipsTab: React.FC<RelationshipsTabProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ExtractedRelationship>>({});
 
-  const getMemberName = (id: string) => {
+  const getMemberName = (id?: string | null) => {
     const member = members.find(m => m.id === id);
     return member?.full_name || 'Unknown';
   };
@@ -1086,22 +1159,30 @@ const RelationshipsTab: React.FC<RelationshipsTabProps> = ({
                     <select
                       value={editForm.relationship_type || ''}
                       onChange={e =>
-                        setEditForm({ ...editForm, relationship_type: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          relationship_type: e.target
+                            .value as ExtractedRelationship['relationship_type'],
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="parent_child">Parent-Child</option>
+                      <option value="parent">Parent</option>
+                      <option value="child">Child</option>
                       <option value="spouse">Spouse</option>
                       <option value="sibling">Sibling</option>
-                      <option value="adoption">Adoption</option>
+                      <option value="adoptive_parent">Adoptive Parent</option>
+                      <option value="step_parent">Step Parent</option>
+                      <option value="partner">Partner</option>
+                      <option value="guardian">Guardian</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <input
                       type="text"
-                      value={editForm.notes || ''}
-                      onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                      value={editForm.relationship_notes || ''}
+                      onChange={e => setEditForm({ ...editForm, relationship_notes: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -1130,7 +1211,7 @@ const RelationshipsTab: React.FC<RelationshipsTabProps> = ({
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-medium text-gray-900">
-                      {getMemberName(relationship.person1_id)}
+                      {getMemberName(relationship.source_extracted_id)}
                     </span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                     <span className="text-emerald-600 font-medium">
@@ -1138,19 +1219,19 @@ const RelationshipsTab: React.FC<RelationshipsTabProps> = ({
                     </span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                     <span className="font-medium text-gray-900">
-                      {getMemberName(relationship.person2_id)}
+                      {getMemberName(relationship.target_extracted_id)}
                     </span>
                     {getVerificationIcon(relationship.verification_status)}
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${getConfidenceColor(
-                        relationship.confidence_score
+                        relationship.confidence_score ?? 0
                       )}`}
                     >
-                      {(relationship.confidence_score * 100).toFixed(0)}%
+                      {((relationship.confidence_score ?? 0) * 100).toFixed(0)}%
                     </span>
                   </div>
-                  {relationship.notes && (
-                    <p className="text-sm text-gray-500 italic">{relationship.notes}</p>
+                  {relationship.relationship_notes && (
+                    <p className="text-sm text-gray-500 italic">{relationship.relationship_notes}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -1215,24 +1296,15 @@ const ConflictsTab: React.FC<ConflictsTabProps> = ({ conflicts, members, onResol
                   <span className="font-semibold text-gray-900">
                     {conflict.conflict_type.replace('_', ' ').toUpperCase()}
                   </span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      conflict.severity === 'high'
-                        ? 'bg-red-100 text-red-800'
-                        : conflict.severity === 'medium'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {conflict.severity} severity
-                  </span>
                 </div>
                 <p className="text-sm text-gray-700 mb-3">{conflict.description}</p>
-                <div className="bg-white rounded border border-orange-200 p-3 mb-3">
-                  <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                    {JSON.stringify(conflict.conflicting_data, null, 2)}
-                  </pre>
-                </div>
+                {conflict.evidence_text && (
+                  <div className="bg-white rounded border border-orange-200 p-3 mb-3">
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                      {conflict.evidence_text}
+                    </pre>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => onResolve(conflict, 'keep_extracted')}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI Extraction Engine
  * 
  * Transforms processed PDF content into structured family data using AI.
@@ -27,9 +27,9 @@ import type {
 } from '../types';
 import { supabase } from './supabase';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TYPES
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface RawExtractedPerson {
   full_name: string;
@@ -78,9 +78,18 @@ interface ExtractionResult {
   document_notes: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // AI EXTRACTION PROMPT ENGINEERING
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+/** The DB uses DATE; the AI may return a bare year. */
+function normalizeDateForDb(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}$/.test(trimmed)) return `${trimmed}-01-01`;
+  return trimmed;
+}
 
 function buildExtractionPrompt(pages: ProcessedPage[], documentType: 'text' | 'diagram' | 'mixed'): string {
   const combinedText = pages
@@ -91,9 +100,9 @@ function buildExtractionPrompt(pages: ProcessedPage[], documentType: 'text' | 'd
     })
     .join('\n\n');
 
-  console.log(`🤖 [Prompt] Building prompt for ${pages.length} pages, type: ${documentType}`);
-  console.log(`🤖 [Prompt] Combined text length: ${combinedText.length} characters`);
-  console.log(`🤖 [Prompt] First 300 chars of content:\n${combinedText.substring(0, 300)}`);
+  console.log(`ðŸ¤– [Prompt] Building prompt for ${pages.length} pages, type: ${documentType}`);
+  console.log(`ðŸ¤– [Prompt] Combined text length: ${combinedText.length} characters`);
+  console.log(`ðŸ¤– [Prompt] First 300 chars of content:\n${combinedText.substring(0, 300)}`);
 
   return `You are an expert genealogist analyzing a family tree document. Your task is to extract ALL family members and their relationships with high accuracy.
 
@@ -193,192 +202,50 @@ Return valid JSON with this EXACT structure (no markdown, no code blocks, just J
 CRITICAL: Return ONLY the JSON object. No additional text, no explanations, no markdown formatting.`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // AI API INTEGRATION (Placeholder for Google Gemini)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-async function callAIExtractionAPI(prompt: string): Promise<ExtractionResult> {
-  try {
-    // Check for Groq API key first (preferred for PDF extraction)
-    const groqApiKey = import.meta.env.VITE_GROQ_API_KEY;
-    const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    
-    if (groqApiKey) {
-      console.log(`🤖 [AI] Using Groq API for extraction`);
-      return await callGroqAPI(prompt, groqApiKey);
-    } else if (geminiApiKey) {
-      console.log(`🤖 [AI] Using Gemini API for extraction`);
-      return await callGeminiAPI(prompt, geminiApiKey);
-    } else {
-      throw new Error('No AI API key configured. Set either VITE_GROQ_API_KEY or VITE_GEMINI_API_KEY in .env file');
-    }
-  } catch (error: any) {
-    console.error('❌ [AI] AI extraction error:', error);
-    console.error('❌ [AI] Error name:', error.name);
-    console.error('❌ [AI] Error message:', error.message);
-    if (error.stack) {
-      console.error('❌ [AI] Stack trace:', error.stack);
-    }
-    throw new Error(`AI extraction failed: ${error.message}`);
-  }
-}
-
-/**
- * Call Groq API for extraction (supports llama models)
- */
-async function callGroqAPI(prompt: string, apiKey: string): Promise<ExtractionResult> {
-  console.log(`🤖 [Groq] API Key present: ${apiKey.substring(0, 10)}... (${apiKey.length} chars)`);
-  console.log(`🤖 [Groq] Sending extraction request...`);
-  console.log(`🤖 [Groq] Prompt length: ${prompt.length} characters`);
-  console.log(`🤖 [Groq] First 500 chars of prompt:\n${prompt.substring(0, 500)}`);
-  console.log(`🤖 [Groq] Model: llama-3.1-70b-versatile`);
-
-  try {
-    const requestBody = {
-      model: 'llama-3.1-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert genealogist. Extract family information and return ONLY valid JSON, no markdown, no explanations.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.2,
-      max_tokens: 8000,
-      response_format: { type: 'json_object' }
-    };
-    
-    console.log(`🤖 [Groq] Request body prepared, sending to API...`);
-    
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    console.log(`🤖 [Groq] Response status: ${response.status} ${response.statusText}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ [Groq] API error (${response.status}):`, errorText);
-      
-      // Try to parse error as JSON
-      try {
-        const errorJson = JSON.parse(errorText);
-        console.error(`❌ [Groq] Error details:`, errorJson);
-      } catch (e) {
-        // Error text is not JSON, already logged
-      }
-      
-      throw new Error(`Groq API request failed: ${response.status} ${response.statusText}. ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log(`✅ [Groq] Response received successfully`);
-    console.log(`✅ [Groq] Response structure:`, Object.keys(data));
-
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error(`❌ [Groq] Invalid response structure:`, data);
-      throw new Error('Groq API returned invalid response structure');
-    }
-
-    const text = data.choices[0].message.content;
-    console.log(`🤖 [Groq] Response length: ${text.length} characters`);
-    console.log(`🤖 [Groq] Response preview (first 500 chars):\n"${text.substring(0, 500)}..."`);
-    
-    // Check if response is empty
-    if (!text || text.trim().length === 0) {
-      console.error(`❌ [Groq] Response is empty!`);
-      throw new Error('Groq API returned empty response');
-    }
-
-    return parseExtractionResponse(text);
-
-  } catch (error: any) {
-    console.error(`❌ [Groq] Error:`, error);
-    console.error(`❌ [Groq] Error name:`, error.name);
-    console.error(`❌ [Groq] Error message:`, error.message);
-    if (error.stack) {
-      console.error(`❌ [Groq] Stack trace:`, error.stack);
-    }
-    throw error;
-  }
-}
-
-/**
- * Call Gemini API for extraction (fallback)
- */
-async function callGeminiAPI(prompt: string, apiKey: string): Promise<ExtractionResult> {
-  // Import Google GenAI SDK (dynamically to handle missing package)
-  let GoogleGenerativeAI: any;
-  try {
-    const genAIModule = await import('@google/generative-ai');
-    GoogleGenerativeAI = genAIModule.GoogleGenerativeAI;
-  } catch (importError) {
-    console.error('Google Generative AI package not installed');
-    throw new Error('AI extraction requires @google/generative-ai package. Install with: npm install @google/generative-ai');
-  }
-  
-  console.log(`🤖 [Gemini] API Key present: ${apiKey.substring(0, 10)}... (${apiKey.length} chars)`);
-  
-  // Warn if API key format looks suspicious
-  if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AI')) {
-    console.warn(`⚠️ [Gemini] WARNING: API key format unexpected. Gemini keys typically start with "AIza" or "AI"`);
-    console.warn(`⚠️ [Gemini] Current key starts with: "${apiKey.substring(0, 5)}"`);
+async function callAIExtractionAPI(
+  prompt: string,
+  familyId: string,
+): Promise<ExtractionResult> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-pro',
-    generationConfig: {
-      temperature: 0.2,
-      topP: 0.8,
-      topK: 40,
-      maxOutputTokens: 8192,
-    },
+  const { data, error } = await supabase.functions.invoke('extract-family-pdf', {
+    body: { familyId, prompt },
   });
 
-  console.log(`🤖 [Gemini] Sending extraction request...`);
-  console.log(`🤖 [Gemini] Prompt length: ${prompt.length} characters`);
-  console.log(`🤖 [Gemini] Model: gemini-1.5-pro`);
-  
-  let geminiResult;
-  try {
-    geminiResult = await model.generateContent(prompt);
-  } catch (apiError: any) {
-    console.error(`❌ [Gemini] API call failed:`, apiError);
-    console.error(`❌ [Gemini] Error name:`, apiError.name);
-    console.error(`❌ [Gemini] Error message:`, apiError.message);
-    
-    if (apiError.message?.includes('API key')) {
-      throw new Error(`Gemini API key is invalid or expired. Please check VITE_GEMINI_API_KEY in .env file. Error: ${apiError.message}`);
+  if (error) {
+    let message = error.message;
+    const context = (error as { context?: Response }).context;
+    if (context && typeof context.json === 'function') {
+      try {
+        const body = await context.json();
+        if (body?.error) message = body.error;
+      } catch {
+        // keep the original message
+      }
     }
-    
-    throw new Error(`Gemini API request failed: ${apiError.message}`);
+    throw new Error(message);
   }
-  
-  const response = await geminiResult.response;
-  const text = response.text();
 
-  console.log(`🤖 [Gemini] Response received: ${text.length} characters`);
-  console.log(`🤖 [Gemini] Response preview: "${text.substring(0, 200)}..."`);
+  const text = typeof data?.text === 'string' ? data.text : '';
+  if (!text.trim()) {
+    throw new Error('AI proxy returned an empty response.');
+  }
 
   return parseExtractionResponse(text);
 }
 
 /**
- * Parse AI response into ExtractionResult (works for both Groq and Gemini)
- */
-function parseExtractionResponse(text: string): ExtractionResult {
-  console.log(`🤖 [Parser] Parsing AI response...`);
-  console.log(`🤖 [Parser] Raw response length: ${text.length} characters`);
-  console.log(`🤖 [Parser] First 300 chars:\n"${text.substring(0, 300)}"`);
+ * Parse AI response into ExtractionResult.
+ */function parseExtractionResponse(text: string): ExtractionResult {
+  console.log(`ðŸ¤– [Parser] Parsing AI response...`);
+  console.log(`ðŸ¤– [Parser] Raw response length: ${text.length} characters`);
+  console.log(`ðŸ¤– [Parser] First 300 chars:\n"${text.substring(0, 300)}"`);
   
   // Try to extract JSON from the response
   // AI sometimes wraps JSON in markdown code blocks
@@ -388,38 +255,38 @@ function parseExtractionResponse(text: string): ExtractionResult {
   const originalLength = jsonText.length;
   if (jsonText.startsWith('```json')) {
     jsonText = jsonText.substring(7);
-    console.log(`🤖 [Parser] Removed \`\`\`json prefix`);
+    console.log(`ðŸ¤– [Parser] Removed \`\`\`json prefix`);
   } else if (jsonText.startsWith('```')) {
     jsonText = jsonText.substring(3);
-    console.log(`🤖 [Parser] Removed \`\`\` prefix`);
+    console.log(`ðŸ¤– [Parser] Removed \`\`\` prefix`);
   }
   
   if (jsonText.endsWith('```')) {
     jsonText = jsonText.substring(0, jsonText.length - 3);
-    console.log(`🤖 [Parser] Removed \`\`\` suffix`);
+    console.log(`ðŸ¤– [Parser] Removed \`\`\` suffix`);
   }
   
   jsonText = jsonText.trim();
   
   if (jsonText.length !== originalLength) {
-    console.log(`🤖 [Parser] Cleaned text length: ${jsonText.length} (was ${originalLength})`);
+    console.log(`ðŸ¤– [Parser] Cleaned text length: ${jsonText.length} (was ${originalLength})`);
   }
 
   // Parse JSON response
   let parsed;
   try {
     parsed = JSON.parse(jsonText);
-    console.log(`✅ [Parser] JSON parsed successfully`);
+    console.log(`âœ… [Parser] JSON parsed successfully`);
   } catch (parseError: any) {
-    console.error(`❌ [Parser] JSON parsing failed:`, parseError);
-    console.error(`❌ [Parser] Failed to parse text (first 1000 chars):\n${jsonText.substring(0, 1000)}`);
-    console.error(`❌ [Parser] Last 500 chars:\n${jsonText.substring(Math.max(0, jsonText.length - 500))}`);
+    console.error(`âŒ [Parser] JSON parsing failed:`, parseError);
+    console.error(`âŒ [Parser] Failed to parse text (first 1000 chars):\n${jsonText.substring(0, 1000)}`);
+    console.error(`âŒ [Parser] Last 500 chars:\n${jsonText.substring(Math.max(0, jsonText.length - 500))}`);
     throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
   }
   
-  console.log(`✅ [Parser] Response keys:`, Object.keys(parsed));
-  console.log(`✅ [Parser] Has 'people' field:`, 'people' in parsed);
-  console.log(`✅ [Parser] Has 'relationships' field:`, 'relationships' in parsed);
+  console.log(`âœ… [Parser] Response keys:`, Object.keys(parsed));
+  console.log(`âœ… [Parser] Has 'people' field:`, 'people' in parsed);
+  console.log(`âœ… [Parser] Has 'relationships' field:`, 'relationships' in parsed);
   
   const extractionResult: ExtractionResult = {
     people: parsed.people || [],
@@ -430,40 +297,40 @@ function parseExtractionResponse(text: string): ExtractionResult {
   };
   
   if (!Array.isArray(extractionResult.people)) {
-    console.error(`❌ [Parser] 'people' field is not an array:`, typeof extractionResult.people);
-    console.error(`❌ [Parser] 'people' value:`, extractionResult.people);
+    console.error(`âŒ [Parser] 'people' field is not an array:`, typeof extractionResult.people);
+    console.error(`âŒ [Parser] 'people' value:`, extractionResult.people);
     extractionResult.people = [];
   }
   
   if (!Array.isArray(extractionResult.relationships)) {
-    console.error(`❌ [Parser] 'relationships' field is not an array:`, typeof extractionResult.relationships);
-    console.error(`❌ [Parser] 'relationships' value:`, extractionResult.relationships);
+    console.error(`âŒ [Parser] 'relationships' field is not an array:`, typeof extractionResult.relationships);
+    console.error(`âŒ [Parser] 'relationships' value:`, extractionResult.relationships);
     extractionResult.relationships = [];
   }
 
-  console.log(`✅ [Parser] Extracted: ${extractionResult.people.length} people, ${extractionResult.relationships.length} relationships`);
+  console.log(`âœ… [Parser] Extracted: ${extractionResult.people.length} people, ${extractionResult.relationships.length} relationships`);
   
   if (extractionResult.people.length === 0) {
-    console.warn(`⚠️ [Parser] WARNING: AI returned ZERO people!`);
-    console.warn(`⚠️ [Parser] This could mean:`);
-    console.warn(`⚠️ [Parser]   1. AI didn't understand the prompt`);
-    console.warn(`⚠️ [Parser]   2. PDF text is empty or unreadable`);
-    console.warn(`⚠️ [Parser]   3. AI response has wrong structure`);
-    console.warn(`⚠️ [Parser] Full parsed response:`, JSON.stringify(parsed, null, 2).substring(0, 1000));
+    console.warn(`âš ï¸ [Parser] WARNING: AI returned ZERO people!`);
+    console.warn(`âš ï¸ [Parser] This could mean:`);
+    console.warn(`âš ï¸ [Parser]   1. AI didn't understand the prompt`);
+    console.warn(`âš ï¸ [Parser]   2. PDF text is empty or unreadable`);
+    console.warn(`âš ï¸ [Parser]   3. AI response has wrong structure`);
+    console.warn(`âš ï¸ [Parser] Full parsed response:`, JSON.stringify(parsed, null, 2).substring(0, 1000));
   } else {
-    console.log(`✅ [Parser] Sample people:`, extractionResult.people.slice(0, 3).map(p => p.full_name));
+    console.log(`âœ… [Parser] Sample people:`, extractionResult.people.slice(0, 3).map(p => p.full_name));
   }
   
   if (extractionResult.relationships.length > 0) {
-    console.log(`✅ [Parser] Sample relationships:`, extractionResult.relationships.slice(0, 3).map(r => `${r.source_name} -> ${r.target_name} (${r.type})`));
+    console.log(`âœ… [Parser] Sample relationships:`, extractionResult.relationships.slice(0, 3).map(r => `${r.source_name} -> ${r.target_name} (${r.type})`));
   }
   
   return extractionResult;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // POST-PROCESSING & VALIDATION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Validate and normalize extracted person data
@@ -488,18 +355,18 @@ function validatePerson(person: RawExtractedPerson): {
 
   // Validate dates (but don't reject if invalid, just warn and fix)
   if (person.birth_year && (person.birth_year < 1000 || person.birth_year > new Date().getFullYear())) {
-    console.warn(`⚠️ [Validation] ${person.full_name}: Invalid birth year ${person.birth_year}, setting to null`);
+    console.warn(`âš ï¸ [Validation] ${person.full_name}: Invalid birth year ${person.birth_year}, setting to null`);
     normalized.birth_year = undefined;
   }
 
   if (person.death_year && (person.death_year < 1000 || person.death_year > new Date().getFullYear())) {
-    console.warn(`⚠️ [Validation] ${person.full_name}: Invalid death year ${person.death_year}, setting to null`);
+    console.warn(`âš ï¸ [Validation] ${person.full_name}: Invalid death year ${person.death_year}, setting to null`);
     normalized.death_year = undefined;
   }
 
   // Validate death after birth (reduce confidence but don't reject)
   if (person.birth_year && person.death_year && person.death_year < person.birth_year) {
-    console.warn(`⚠️ [Validation] ${person.full_name}: Death year (${person.death_year}) before birth year (${person.birth_year}), reducing confidence`);
+    console.warn(`âš ï¸ [Validation] ${person.full_name}: Death year (${person.death_year}) before birth year (${person.birth_year}), reducing confidence`);
     normalized.confidence = Math.max(0, person.confidence - 0.2);
   }
 
@@ -557,11 +424,11 @@ function validateRelationship(
   );
 
   if (!sourceExists) {
-    console.warn(`⚠️ [Validation] Relationship source person not found: ${relationship.source_name}`);
+    console.warn(`âš ï¸ [Validation] Relationship source person not found: ${relationship.source_name}`);
     errors.push(`Source person not found: ${relationship.source_name}`);
   }
   if (!targetExists) {
-    console.warn(`⚠️ [Validation] Relationship target person not found: ${relationship.target_name}`);
+    console.warn(`âš ï¸ [Validation] Relationship target person not found: ${relationship.target_name}`);
     errors.push(`Target person not found: ${relationship.target_name}`);
   }
 
@@ -573,7 +440,7 @@ function validateRelationship(
   // Validate relationship type
   const validTypes = ['parent', 'spouse', 'child', 'sibling', 'adoptive_parent', 'adopted_child'];
   if (!validTypes.includes(relationship.type)) {
-    console.warn(`⚠️ [Validation] Invalid relationship type: ${relationship.type}, defaulting to 'parent'`);
+    console.warn(`âš ï¸ [Validation] Invalid relationship type: ${relationship.type}, defaulting to 'parent'`);
     normalized.type = 'parent';
   }
 
@@ -594,9 +461,9 @@ function validateRelationship(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DUPLICATE DETECTION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Calculate similarity between two names
@@ -711,9 +578,9 @@ async function detectExistingDuplicates(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // CONFLICT DETECTION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Detect conflicts in extracted data
@@ -772,9 +639,9 @@ function detectConflicts(
   return conflicts;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // MAIN EXTRACTION ORCHESTRATOR
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ExtractionProgress {
   stage: 'preparing' | 'extracting' | 'validating' | 'saving' | 'complete';
@@ -817,13 +684,13 @@ export async function extractFamilyDataFromPDF(
     const hasText = pages.some(p => p.extractedText && p.extractedText.length > 100);
     const documentType: 'text' | 'diagram' | 'mixed' = hasText ? 'text' : 'diagram';
 
-    console.log(`🤖 [Extractor] Processing ${pages.length} pages, document type: ${documentType}`);
+    console.log(`ðŸ¤– [Extractor] Processing ${pages.length} pages, document type: ${documentType}`);
     
     // Log pages summary
     const pagesWithText = pages.filter(p => p.extractedText && p.extractedText.length > 100).length;
     const totalChars = pages.reduce((sum, p) => (p.extractedText?.length || 0) + sum, 0);
-    console.log(`🤖 [Extractor] Pages with substantial text: ${pagesWithText}/${pages.length}`);
-    console.log(`🤖 [Extractor] Total characters to analyze: ${totalChars}`);
+    console.log(`ðŸ¤– [Extractor] Pages with substantial text: ${pagesWithText}/${pages.length}`);
+    console.log(`ðŸ¤– [Extractor] Total characters to analyze: ${totalChars}`);
 
     // Stage 2: Process in batches (5 pages at a time for manageable API calls)
     const BATCH_SIZE = 5;
@@ -832,10 +699,10 @@ export async function extractFamilyDataFromPDF(
       batches.push(pages.slice(i, i + BATCH_SIZE));
     }
 
-    console.log(`🤖 [Extractor] Split into ${batches.length} batches of ${BATCH_SIZE} pages each`);
+    console.log(`ðŸ¤– [Extractor] Split into ${batches.length} batches of ${BATCH_SIZE} pages each`);
     
     if (batches.length === 0) {
-      console.error(`🤖 [Extractor] ERROR: No batches created! This should not happen.`);
+      console.error(`ðŸ¤– [Extractor] ERROR: No batches created! This should not happen.`);
       throw new Error('No pages to process');
     }
 
@@ -855,33 +722,33 @@ export async function extractFamilyDataFromPDF(
         });
       }
 
-      console.log(`🤖 [Extractor] Processing batch ${batchIndex + 1}/${batches.length} (pages ${batchStart}-${batchEnd})`);
+      console.log(`ðŸ¤– [Extractor] Processing batch ${batchIndex + 1}/${batches.length} (pages ${batchStart}-${batchEnd})`);
       
       // Log batch content summary
       const batchChars = batch.reduce((sum, p) => (p.extractedText?.length || 0) + sum, 0);
-      console.log(`🤖 [Extractor] Batch ${batchIndex + 1} content: ${batchChars} characters`);
+      console.log(`ðŸ¤– [Extractor] Batch ${batchIndex + 1} content: ${batchChars} characters`);
 
       try {
         const prompt = buildExtractionPrompt(batch, documentType);
         
         // Log prompt sample to verify content is being sent
-        console.log(`🤖 [Extractor] Batch ${batchIndex + 1} prompt sample (first 500 chars):`);
+        console.log(`ðŸ¤– [Extractor] Batch ${batchIndex + 1} prompt sample (first 500 chars):`);
         console.log(prompt.substring(0, 500) + '...');
         
-        const batchResult = await callAIExtractionAPI(prompt);
+        const batchResult = await callAIExtractionAPI(prompt, familyId);
 
         allPeople.push(...batchResult.people);
         allRelationships.push(...batchResult.relationships);
 
-        console.log(`✅ [Extractor] Batch ${batchIndex + 1} extracted: ${batchResult.people.length} people, ${batchResult.relationships.length} relationships`);
+        console.log(`âœ… [Extractor] Batch ${batchIndex + 1} extracted: ${batchResult.people.length} people, ${batchResult.relationships.length} relationships`);
       } catch (batchError: any) {
-        console.error(`❌ [Extractor] Batch ${batchIndex + 1} failed:`, batchError);
-        console.error(`❌ [Extractor] Error details:`, batchError.message);
-        console.error(`❌ [Extractor] Error stack:`, batchError.stack);
+        console.error(`âŒ [Extractor] Batch ${batchIndex + 1} failed:`, batchError);
+        console.error(`âŒ [Extractor] Error details:`, batchError.message);
+        console.error(`âŒ [Extractor] Error stack:`, batchError.stack);
         
         // If ALL batches fail, we need to know
         if (batchIndex === batches.length - 1 && allPeople.length === 0) {
-          console.error(`❌ [Extractor] CRITICAL: All batches failed or returned empty!`);
+          console.error(`âŒ [Extractor] CRITICAL: All batches failed or returned empty!`);
         }
         
         // Continue with other batches
@@ -897,15 +764,15 @@ export async function extractFamilyDataFromPDF(
       });
     }
 
-    console.log(`🤖 [Extractor] Total extracted before validation: ${allPeople.length} people, ${allRelationships.length} relationships`);
+    console.log(`ðŸ¤– [Extractor] Total extracted before validation: ${allPeople.length} people, ${allRelationships.length} relationships`);
     
     if (allPeople.length === 0 && allRelationships.length === 0) {
-      console.error(`❌ [Extractor] CRITICAL: AI extraction returned ZERO results!`);
-      console.error(`❌ [Extractor] This could mean:`);
-      console.error(`❌ [Extractor]   1. PDF contains no extractable text`);
-      console.error(`❌ [Extractor]   2. AI API failed to respond`);
-      console.error(`❌ [Extractor]   3. AI response JSON parsing failed`);
-      console.error(`❌ [Extractor]   4. Document format not recognized`);
+      console.error(`âŒ [Extractor] CRITICAL: AI extraction returned ZERO results!`);
+      console.error(`âŒ [Extractor] This could mean:`);
+      console.error(`âŒ [Extractor]   1. PDF contains no extractable text`);
+      console.error(`âŒ [Extractor]   2. AI API failed to respond`);
+      console.error(`âŒ [Extractor]   3. AI response JSON parsing failed`);
+      console.error(`âŒ [Extractor]   4. Document format not recognized`);
     }
 
     const validatedPeople: RawExtractedPerson[] = [];
@@ -921,8 +788,8 @@ export async function extractFamilyDataFromPDF(
     });
     
     if (validationErrors.length > 0) {
-      console.warn(`⚠️ [Extractor] Validation rejected ${validationErrors.length} people:`);
-      validationErrors.slice(0, 5).forEach(err => console.warn(`⚠️ [Extractor]   - ${err}`));
+      console.warn(`âš ï¸ [Extractor] Validation rejected ${validationErrors.length} people:`);
+      validationErrors.slice(0, 5).forEach(err => console.warn(`âš ï¸ [Extractor]   - ${err}`));
     }
 
     const validatedRelationships: RawExtractedRelationship[] = [];
@@ -938,16 +805,16 @@ export async function extractFamilyDataFromPDF(
     });
     
     if (relValidationErrors.length > 0) {
-      console.warn(`⚠️ [Extractor] Validation rejected ${relValidationErrors.length} relationships:`);
-      relValidationErrors.slice(0, 5).forEach(err => console.warn(`⚠️ [Extractor]   - ${err}`));
+      console.warn(`âš ï¸ [Extractor] Validation rejected ${relValidationErrors.length} relationships:`);
+      relValidationErrors.slice(0, 5).forEach(err => console.warn(`âš ï¸ [Extractor]   - ${err}`));
     }
 
-    console.log(`✅ [Extractor] After validation: ${validatedPeople.length} people, ${validatedRelationships.length} relationships`);
+    console.log(`âœ… [Extractor] After validation: ${validatedPeople.length} people, ${validatedRelationships.length} relationships`);
     
     if (validatedPeople.length === 0) {
-      console.error(`❌ [Extractor] CRITICAL: ALL PEOPLE REJECTED DURING VALIDATION!`);
-      console.error(`❌ [Extractor] Original count: ${allPeople.length}, Validated: ${validatedPeople.length}`);
-      console.error(`❌ [Extractor] Check validation rules - they may be too restrictive`);
+      console.error(`âŒ [Extractor] CRITICAL: ALL PEOPLE REJECTED DURING VALIDATION!`);
+      console.error(`âŒ [Extractor] Original count: ${allPeople.length}, Validated: ${validatedPeople.length}`);
+      console.error(`âŒ [Extractor] Check validation rules - they may be too restrictive`);
     }
 
     // Stage 4: Save to database
@@ -965,8 +832,8 @@ export async function extractFamilyDataFromPDF(
       family_id: familyId,
       full_name: person.full_name,
       gender: person.gender || null,
-      birth_date: person.birth_date || null,
-      death_date: person.death_date || null,
+      birth_date: normalizeDateForDb(person.birth_date),
+      death_date: normalizeDateForDb(person.death_date),
       living_status: person.living_status || 'unknown',
       biography: person.biography || null,
       generation_label: person.generation_label || null,
@@ -976,16 +843,16 @@ export async function extractFamilyDataFromPDF(
       verification_status: 'needs_review' as const,
     }));
 
-    console.log(`💾 [Extractor] Inserting ${peopleToInsert.length} people...`);
+    console.log(`ðŸ’¾ [Extractor] Inserting ${peopleToInsert.length} people...`);
     
     if (peopleToInsert.length === 0) {
-      console.error(`❌ [Extractor] ERROR: No people to insert! Extraction failed.`);
-      console.error(`❌ [Extractor] Diagnostic summary:`);
-      console.error(`❌ [Extractor]   - Total pages processed: ${pages.length}`);
-      console.error(`❌ [Extractor]   - Batches attempted: ${batches.length}`);
-      console.error(`❌ [Extractor]   - Raw people from AI: ${allPeople.length}`);
-      console.error(`❌ [Extractor]   - People after validation: ${validatedPeople.length}`);
-      console.error(`❌ [Extractor]   - People to insert: ${peopleToInsert.length}`);
+      console.error(`âŒ [Extractor] ERROR: No people to insert! Extraction failed.`);
+      console.error(`âŒ [Extractor] Diagnostic summary:`);
+      console.error(`âŒ [Extractor]   - Total pages processed: ${pages.length}`);
+      console.error(`âŒ [Extractor]   - Batches attempted: ${batches.length}`);
+      console.error(`âŒ [Extractor]   - Raw people from AI: ${allPeople.length}`);
+      console.error(`âŒ [Extractor]   - People after validation: ${validatedPeople.length}`);
+      console.error(`âŒ [Extractor]   - People to insert: ${peopleToInsert.length}`);
       
       if (allPeople.length === 0) {
         throw new Error('AI extraction returned zero people. Check: 1) PDF contains extractable text, 2) Groq API key is valid, 3) AI response parsing succeeded. See console logs for details.');
@@ -1006,11 +873,11 @@ export async function extractFamilyDataFromPDF(
       throw new Error(`Failed to save extracted people: ${peopleError.message}`);
     }
 
-    console.log(`✅ [Extractor] Inserted ${insertedPeople?.length || 0} people successfully`);
+    console.log(`âœ… [Extractor] Inserted ${insertedPeople?.length || 0} people successfully`);
     
     if (!insertedPeople || insertedPeople.length === 0) {
-      console.error(`❌ [Extractor] ERROR: Database insert returned ZERO people!`);
-      console.error(`❌ [Extractor] Check Supabase RLS policies and table permissions`);
+      console.error(`âŒ [Extractor] ERROR: Database insert returned ZERO people!`);
+      console.error(`âŒ [Extractor] Check Supabase RLS policies and table permissions`);
     }
 
     // Create mapping of names to IDs
@@ -1034,6 +901,7 @@ export async function extractFamilyDataFromPDF(
 
         return {
           import_job_id: jobId,
+          family_id: familyId,
           source_extracted_id: sourceId,
           target_extracted_id: targetId,
           relationship_type: rel.type,
@@ -1044,10 +912,10 @@ export async function extractFamilyDataFromPDF(
       })
       .filter(rel => rel !== null);
 
-    console.log(`💾 [Extractor] Inserting ${relationshipsToInsert.length} relationships...`);
+    console.log(`ðŸ’¾ [Extractor] Inserting ${relationshipsToInsert.length} relationships...`);
 
     if (relationshipsToInsert.length === 0) {
-      console.warn(`⚠️ [Extractor] WARNING: No relationships to insert`);
+      console.warn(`âš ï¸ [Extractor] WARNING: No relationships to insert`);
     }
     
     const { data: insertedRelationships, error: relationshipsError } = await supabase
@@ -1060,10 +928,10 @@ export async function extractFamilyDataFromPDF(
       throw new Error(`Failed to save relationships: ${relationshipsError.message}`);
     }
 
-    console.log(`✅ [Extractor] Inserted ${insertedRelationships?.length || 0} relationships successfully`);
+    console.log(`âœ… [Extractor] Inserted ${insertedRelationships?.length || 0} relationships successfully`);
 
     // Update job status
-    console.log(`💾 [Extractor] Updating job status to 'processed'...`);
+    console.log(`ðŸ’¾ [Extractor] Updating job status to 'processed'...`);
     await supabase
       .from('family_import_jobs')
       .update({
@@ -1082,11 +950,11 @@ export async function extractFamilyDataFromPDF(
       });
     }
 
-    console.log(`✅ [Extractor] ========== EXTRACTION COMPLETE ==========`);
-    console.log(`✅ [Extractor] Extracted People: ${insertedPeople?.length || 0}`);
-    console.log(`✅ [Extractor] Extracted Relationships: ${insertedRelationships?.length || 0}`);
-    console.log(`✅ [Extractor] Job Status: processed`);
-    console.log(`✅ [Extractor] =============================================`);
+    console.log(`âœ… [Extractor] ========== EXTRACTION COMPLETE ==========`);
+    console.log(`âœ… [Extractor] Extracted People: ${insertedPeople?.length || 0}`);
+    console.log(`âœ… [Extractor] Extracted Relationships: ${insertedRelationships?.length || 0}`);
+    console.log(`âœ… [Extractor] Job Status: processed`);
+    console.log(`âœ… [Extractor] =============================================`);
 
     return {
       success: true,
@@ -1124,9 +992,9 @@ export async function extractFamilyDataFromPDF(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // UTILITY: Generation Level Assignment
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Assign numeric generation levels based on relationships
