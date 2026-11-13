@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../supabase';
+import { isDemoSandboxActive } from '../demoSandbox';
 
 /** Common shape of PostgREST and Storage errors. */
 export interface ErrorLike {
@@ -31,6 +32,9 @@ export class DbError extends Error {
  * Demo mode must branch before calling the data layer.
  */
 export function db() {
+  if (isDemoSandboxActive()) {
+    throw new DbError('The live demo is read-only. Create an account to edit a real family.');
+  }
   if (!isSupabaseConfigured || !supabase) {
     throw new DbError(
       'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.',

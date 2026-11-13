@@ -20,6 +20,7 @@ interface SidebarProps {
   onNavigate: (tab: string) => void;
   onViewPublicSite: () => void;
   unreadCount?: number;
+  isDemo?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   onViewPublicSite,
   unreadCount = 0,
+  isDemo = false,
 }) => {
   const isAdmin = currentRole === 'admin';
 
@@ -112,10 +114,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 bg-stone-50 border border-stone-200/80 rounded-xl space-y-1 text-[11px]">
           <div className="flex items-center gap-1.5 font-semibold text-emerald-900">
             <Server className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Workspace Storage Active</span>
+            <span>{isDemo ? 'Demo Sandbox' : 'Workspace Storage Active'}</span>
           </div>
           <p className="text-stone-500 leading-tight">
-            11-table schema · Supabase DDL ready
+            {isDemo
+              ? 'Sample data · Read-only · Nothing is saved'
+              : '11-table schema · Supabase DDL ready'}
           </p>
         </div>
       </div>

@@ -3,6 +3,12 @@ import { storage } from './services/storage';
 import { getSessionUser, onAuthStateChange, signOut, getRoleFromDB } from './services/auth';
 import { isSupabaseConfigured } from './services/supabase';
 import { subscribeToFamilyChanges } from './services/realtime';
+import {
+  DEMO_ROLE,
+  DEMO_USER,
+  getDemoSandbox,
+  setDemoSandboxActive,
+} from './services/demoSandbox';
 import * as db from './services/db';
 import { deletePersonAction, deleteRelationshipAction } from './services/dataActions';
 import {
@@ -57,6 +63,8 @@ const ADMIN_ONLY_TABS = ['user-management', 'collaboration', 'settings'] as cons
 export default function App() {
   // ── Auth & routing ──────────────────────────────────────────────────────────
   const [authView,     setAuthView]     = useState<AuthView>('landing');
+  const [demoSandbox,  setDemoSandbox]  = useState(false);
+  const demoSandboxRef = useRef(false);
   const [authChecked,  setAuthChecked]  = useState(false);
   const [currentUser,  setCurrentUser]  = useState<UserProfile | null>(null);
   const [pendingEmail, setPendingEmail] = useState('');
@@ -107,7 +115,32 @@ export default function App() {
   const [dataLoaded,  setDataLoaded]  = useState(false);
   const [dataError,   setDataError]   = useState<string | null>(null);
 
+  const applyDemoSnapshot = useCallback(() => {
+    const snapshot = getDemoSandbox();
+    setCurrentUser(DEMO_USER);
+    setFamilies([snapshot.family]);
+    setCurrentFamily(snapshot.family);
+    setPeople(snapshot.people);
+    setRelationships(snapshot.relationships);
+    setMemories(snapshot.memories);
+    setEvents(snapshot.events);
+    setMemberships(snapshot.memberships);
+    setInvitations([]);
+    setChangeRequests(snapshot.changeRequests);
+    setNotifications(snapshot.notifications);
+    setAuditLogs(snapshot.auditLogs);
+    setDataError(null);
+    setDataLoading(false);
+    setDataLoaded(true);
+  }, []);
+
   const refreshAll = useCallback(async () => {
+    // ── Read-only public demo ──────────────────────────────────────────────
+    if (demoSandboxRef.current) {
+      applyDemoSnapshot();
+      return;
+    }
+
     const user = storage.getCurrentUser();
     setCurrentUser(user);
 
@@ -142,6 +175,7 @@ export default function App() {
 
     try {
       const fams = await db.listFamilies();
+      if (demoSandboxRef.current) return;
       const storedId = storage.getCurrentFamilyId();
       const active = fams.find((f) => f.id === storedId) ?? fams[0];
 
@@ -186,6 +220,9 @@ export default function App() {
         db.getMyMemberships(user.id),
       ]);
 
+      // A stale Supabase load must never overwrite the demo sandbox.
+      if (demoSandboxRef.current) return;
+
       setFamilies(fams);
       setCurrentFamily(active);
       setPeople(people);
@@ -203,13 +240,14 @@ export default function App() {
       setVerifiedFamilyId(active.id);
       setDataLoaded(true);
     } catch (error) {
+      if (demoSandboxRef.current) return;
       const message = error instanceof Error ? error.message : String(error);
       console.error('[App] Failed to load Supabase data:', error);
       setDataError(message);
     } finally {
-      setDataLoading(false);
+      if (!demoSandboxRef.current) setDataLoading(false);
     }
-  }, []);
+  }, [applyDemoSnapshot]);
 
   const applyVerifiedRole = useCallback((role: Role, familyId: string) => {
     setVerifiedRole(role);
@@ -237,6 +275,13 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentUser]);
+
+  useEffect(() => {
+    demoSandboxRef.current = demoSandbox;
+    setDemoSandboxActive(demoSandbox);
+  }, [demoSandbox]);
+
+  useEffect(() => () => setDemoSandboxActive(false), []);
 
   // ── Re-verify role from DB and enter app ─────────────────────────────────
   const enterApp = useCallback(async (user: UserProfile) => {
@@ -336,6 +381,9 @@ export default function App() {
         return;
       }
 
+      // The demo sandbox never reacts to real auth events.
+      if (demoSandboxRef.current) return;
+
       if (event === 'INITIAL_SESSION' && roleCheckInProgress.current) return;
 
       if (user) {
@@ -392,6 +440,7 @@ export default function App() {
   useEffect(() => {
     if (
       !isSupabaseConfigured ||
+      demoSandbox ||
       authView !== 'app' ||
       !dataLoaded ||
       !currentUser?.id ||
@@ -403,7 +452,7 @@ export default function App() {
     return subscribeToFamilyChanges(currentFamily.id, () => {
       void refreshAll();
     });
-  }, [authView, dataLoaded, currentUser?.id, currentFamily?.id, refreshAll]);
+  }, [authView, dataLoaded, demoSandbox, currentUser?.id, currentFamily?.id, refreshAll]);
 
   // ── Tab resolution — redirect viewers off admin-only tabs ─────────────────
   const resolvedTab = (() => {
@@ -457,9 +506,53 @@ export default function App() {
     await refreshAll();
   };
 
+  const enterDemoSandbox = () => {
+    demoSandboxRef.current = true;
+    setDemoSandboxActive(true);
+    setDemoSandbox(true);
+    applyDemoSnapshot();
+    setVerifiedRole(DEMO_ROLE);
+    setVerifiedFamilyId(getDemoSandbox().family.id);
+    setCurrentTab('dashboard');
+    setAuthView('app');
+  };
+
+  const exitDemoSandbox = () => {
+    demoSandboxRef.current = false;
+    setDemoSandboxActive(false);
+    setDemoSandbox(false);
+    setAuthView('landing');
+    setCurrentTab('dashboard');
+    setDataLoaded(false);
+    setDataError(null);
+
+    // Restore the real session identity without changing the session itself.
+    void getSessionUser().then((sessionUser) => {
+      setCurrentUser(sessionUser);
+      if (!sessionUser) {
+        setVerifiedRole('viewer');
+        setVerifiedFamilyId('');
+      }
+    });
+  };
+
+  const handleViewPublicSite = () => {
+    if (demoSandbox) {
+      exitDemoSandbox();
+      return;
+    }
+    setAuthView('landing');
+  };
+
   const handleSignOut = async () => {
+    if (demoSandbox) {
+      exitDemoSandbox();
+      return;
+    }
     await signOut();
     setAuthView('landing');
+    setDemoSandbox(false);
+    setDemoSandboxActive(false);
     setCurrentUser(null);
     setVerifiedRole('viewer');
     setVerifiedFamilyId('');
@@ -485,18 +578,10 @@ export default function App() {
     return (
       <LandingPage
         onStartBuilding={() => setAuthView('signup')}
-        onExploreDemo={() => {
-          storage.resetToSampleData();
-          void refreshAll();
-          const fam  = storage.getCurrentFamily();
-          const user = storage.getCurrentUser();
-          const role = normalizeRole(storage.getUserRoleInFamily(user.id, fam.id));
-          applyVerifiedRole(role, fam.id);
-          setAuthView('app');
-        }}
+        onExploreDemo={enterDemoSandbox}
         onSignIn={() => setAuthView('signin')}
         onSignUp={() => setAuthView('signup')}
-        demoEnabled={!isSupabaseConfigured}
+        demoEnabled
       />
     );
   }
@@ -683,6 +768,20 @@ export default function App() {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col font-sans text-stone-900 antialiased overflow-x-hidden">
+      {demoSandbox && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between gap-4">
+          <span>
+            <strong>Demo sandbox</strong> — sample data only. Editing is
+            disabled; nothing here touches your family account.
+          </span>
+          <button
+            onClick={exitDemoSandbox}
+            className="font-semibold underline shrink-0 hover:text-amber-950"
+          >
+            Exit demo
+          </button>
+        </div>
+      )}
       {dataError && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between gap-4">
           <span className="truncate">
@@ -707,7 +806,7 @@ export default function App() {
         onSwitchFamily={handleSwitchFamily}
         onCreateNewFamily={() => setIsOnboardingOpen(true)}
         onSignOut={handleSignOut}
-        onViewPublicSite={() => setAuthView('landing')}
+        onViewPublicSite={handleViewPublicSite}
         onRefreshNotifications={refreshAll}
         onOpenAssistant={() => setIsAssistantOpen(true)}
       />
@@ -717,8 +816,9 @@ export default function App() {
           currentTab={resolvedTab}
           currentRole={verifiedRole}
           onNavigate={setCurrentTab}
-          onViewPublicSite={() => setAuthView('landing')}
+          onViewPublicSite={handleViewPublicSite}
           unreadCount={notifications.filter(n => !n.is_read).length}
+          isDemo={demoSandbox}
         />
 
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0 relative bg-stone-50">
@@ -863,7 +963,7 @@ export default function App() {
         currentTab={resolvedTab}
         currentRole={verifiedRole}
         onNavigate={setCurrentTab}
-        onViewPublicSite={() => setAuthView('landing')}
+        onViewPublicSite={handleViewPublicSite}
       />
 
       <PersonProfileDrawer

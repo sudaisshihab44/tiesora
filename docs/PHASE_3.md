@@ -37,7 +37,7 @@ Status: **implemented**, pending authenticated browser verification.
 | JSON restore/overwrite is disabled in Supabase mode. | Phase 9 / import pipeline |
 | `ImportReviewDashboard.tsx` is type-clean; the PDF import flow has been used successfully on the real dataset. | Done — Phase 6 |
 | Real-time subscriptions are enabled for family tables with a debounced refresh. | Done — Phase 5 |
-| Demo mode is hidden when Supabase is configured. | Phase 7 |
+| Demo mode is an in-memory read-only sandbox with no Supabase or localStorage writes. | Done — Phase 7 |
 
 ## Build / test status
 
