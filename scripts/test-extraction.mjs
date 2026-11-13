@@ -5,7 +5,10 @@ import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const args = process.argv.slice(2);
 const processAll = args.includes('--all');
-const pdfPath = args.find((arg) => !arg.startsWith('--'));
+const pagesArg = args.find((arg) => arg.startsWith('--pages='));
+const pdfPath = args.find(
+  (arg) => !arg.startsWith('--') && arg !== pagesArg,
+);
 
 if (!pdfPath) {
   console.error(
@@ -62,10 +65,21 @@ for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
   pageTexts.push({ pageNumber, text });
 }
 
-const BATCH_SIZE = 5;
+let selectedPageTexts = pageTexts;
+if (pagesArg) {
+  const [start, end] = pagesArg
+    .slice('--pages='.length)
+    .split('-')
+    .map(Number);
+  selectedPageTexts = pageTexts.filter(
+    (page) => page.pageNumber >= start && page.pageNumber <= end,
+  );
+}
+
+const BATCH_SIZE = 3;
 const batches = [];
-for (let i = 0; i < pageTexts.length; i += BATCH_SIZE) {
-  batches.push(pageTexts.slice(i, i + BATCH_SIZE));
+for (let i = 0; i < selectedPageTexts.length; i += BATCH_SIZE) {
+  batches.push(selectedPageTexts.slice(i, i + BATCH_SIZE));
 }
 
 const selectedBatches = processAll ? batches : batches.slice(0, 1);
@@ -119,6 +133,50 @@ DOCUMENT CONTENT:
 ${documentText}`;
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function invokeExtraction(prompt, attempt = 1) {
+  const { data, error } = await supabase.functions.invoke(
+    'extract-family-pdf',
+    { body: { familyId, prompt } },
+  );
+
+  if (!error) return data;
+
+  let message = error.message;
+  const context = error.context;
+  if (context && typeof context.text === 'function') {
+    try {
+      const bodyText = await context.text();
+      if (bodyText) {
+        try {
+          const body = JSON.parse(bodyText);
+          message = body?.error || bodyText;
+        } catch {
+          message = bodyText;
+        }
+      }
+    } catch {
+      // keep the original message
+    }
+  }
+
+  const transient =
+    /gemini[\s\S]*?(429|503|unavailable)/i.test(message) ||
+    /groq[\s\S]*?(429|too many requests|rate limit)/i.test(message);
+
+  if (transient && attempt < 4) {
+    const waitMs = attempt * 15_000;
+    console.warn(
+      `retry ${attempt} in ${Math.round(waitMs / 1000)}s: ${message.slice(0, 220)}`,
+    );
+    await sleep(waitMs);
+    return invokeExtraction(prompt, attempt + 1);
+  }
+
+  throw new Error(message);
+}
+
 let totalPeople = 0;
 let totalRelationships = 0;
 const uniqueNames = new Set();
@@ -130,23 +188,7 @@ for (let index = 0; index < selectedBatches.length; index += 1) {
   const prompt = buildPrompt(batch);
 
   try {
-    const { data: result, error } = await supabase.functions.invoke(
-      'extract-family-pdf',
-      { body: { familyId, prompt } },
-    );
-
-    if (error) {
-      const context = error.context;
-      const detail =
-        context && typeof context.text === 'function'
-          ? (await context.text()).slice(0, 500)
-          : error.message;
-      console.error(
-        `batch ${index + 1} (pages ${firstPage}-${lastPage}): ERROR ${detail}`,
-      );
-      continue;
-    }
-
+    const result = await invokeExtraction(prompt);
     const text = typeof result?.text === 'string' ? result.text : '';
     const parsed = JSON.parse(text);
     const people = parsed.people || [];
@@ -160,7 +202,8 @@ for (let index = 0; index < selectedBatches.length; index += 1) {
 
     console.log(
       `batch ${index + 1} (pages ${firstPage}-${lastPage}): ` +
-        `${people.length} people, ${relationships.length} relationships`,
+        `${people.length} people, ${relationships.length} relationships ` +
+        `[${result?.provider || 'unknown'}]`,
     );
   } catch (batchError) {
     console.error(

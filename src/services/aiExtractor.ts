@@ -222,21 +222,27 @@ async function callAIExtractionAPI(
   if (error) {
     let message = error.message;
     const context = (error as { context?: Response }).context;
-    if (context && typeof context.json === 'function') {
+    if (context && typeof context.text === 'function') {
       try {
-        const body = await context.json();
-        if (body?.error) message = body.error;
+        const bodyText = await context.text();
+        if (bodyText) {
+          try {
+            const body = JSON.parse(bodyText);
+            message = body?.error || bodyText;
+          } catch {
+            message = bodyText;
+          }
+        }
       } catch {
         // keep the original message
       }
     }
 
-    // Gemini's free tier is ~15 RPM. Retry transient rate-limit responses
-    // instead of losing the whole batch. Do not retry payload-size errors.
+    // Gemini can return 429 (RPM) or 503 (high demand). Retry those instead
+    // of losing the whole batch. Do not retry a Groq payload-size error.
     const isTransientRateLimit =
-      /(?:^|\D)429(?:\D|$)|resource_exhausted|too many requests|rate limit/i.test(
-        message,
-      ) && !/413|request too large/i.test(message);
+      /gemini[\s\S]*?(429|503|unavailable)/i.test(message) ||
+      /groq[\s\S]*?(429|too many requests|rate limit)/i.test(message);
 
     if (isTransientRateLimit && attempt < 4) {
       const waitMs = attempt * 15_000;
@@ -664,6 +670,112 @@ function detectConflicts(
 // MAIN EXTRACTION ORCHESTRATOR
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ─── Deduplication across overlapping page batches ───────────────────────────
+
+function normalizedPersonKey(name?: string | null): string {
+  return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function dedupeExtractedPeople(
+  people: RawExtractedPerson[],
+): RawExtractedPerson[] {
+  const byName = new Map<string, RawExtractedPerson>();
+
+  for (const person of people) {
+    const key = normalizedPersonKey(person.full_name);
+    if (!key) continue;
+
+    const existing = byName.get(key);
+    if (!existing) {
+      byName.set(key, {
+        ...person,
+        source_pages: [...(person.source_pages || [])],
+      });
+      continue;
+    }
+
+    existing.source_pages = Array.from(
+      new Set([...existing.source_pages, ...(person.source_pages || [])]),
+    ).sort((a, b) => a - b);
+    existing.confidence = Math.max(
+      existing.confidence || 0,
+      person.confidence || 0,
+    );
+    existing.generation_level =
+      existing.generation_level ?? person.generation_level;
+    existing.generation_label =
+      existing.generation_label ?? person.generation_label;
+    existing.branch = existing.branch ?? person.branch;
+    existing.birth_year = existing.birth_year ?? person.birth_year;
+    existing.birth_date = existing.birth_date ?? person.birth_date;
+    existing.birth_place = existing.birth_place ?? person.birth_place;
+    existing.death_year = existing.death_year ?? person.death_year;
+    existing.death_date = existing.death_date ?? person.death_date;
+    existing.death_place = existing.death_place ?? person.death_place;
+    existing.biography = existing.biography ?? person.biography;
+
+    if (person.living_status === 'deceased') {
+      existing.living_status = 'deceased';
+    } else if (
+      !existing.living_status ||
+      existing.living_status === 'unknown'
+    ) {
+      existing.living_status = person.living_status;
+    }
+  }
+
+  return Array.from(byName.values());
+}
+
+function dedupeExtractedRelationships(
+  relationships: RawExtractedRelationship[],
+  people: RawExtractedPerson[],
+): RawExtractedRelationship[] {
+  const canonicalName = new Map<string, string>();
+  people.forEach((person) => {
+    canonicalName.set(normalizedPersonKey(person.full_name), person.full_name);
+  });
+
+  const byKey = new Map<string, RawExtractedRelationship>();
+
+  for (const rel of relationships) {
+    const sourceKey = normalizedPersonKey(rel.source_name);
+    const targetKey = normalizedPersonKey(rel.target_name);
+    if (!sourceKey || !targetKey || sourceKey === targetKey) continue;
+
+    const sourceName = canonicalName.get(sourceKey);
+    const targetName = canonicalName.get(targetKey);
+    if (!sourceName || !targetName) continue;
+
+    const key = `${sourceKey}|${targetKey}|${rel.type}`;
+    const normalized = {
+      ...rel,
+      source_name: sourceName,
+      target_name: targetName,
+    };
+    const existing = byKey.get(key);
+
+    if (!existing) {
+      byKey.set(key, {
+        ...normalized,
+        source_pages: [...(rel.source_pages || [])],
+      });
+      continue;
+    }
+
+    existing.source_pages = Array.from(
+      new Set([...existing.source_pages, ...(rel.source_pages || [])]),
+    ).sort((a, b) => a - b);
+    existing.confidence = Math.max(
+      existing.confidence || 0,
+      rel.confidence || 0,
+    );
+    existing.notes = existing.notes ?? rel.notes;
+  }
+
+  return Array.from(byKey.values());
+}
+
 export interface ExtractionProgress {
   stage: 'preparing' | 'extracting' | 'validating' | 'saving' | 'complete';
   message: string;
@@ -714,7 +826,7 @@ export async function extractFamilyDataFromPDF(
     console.log(`ðŸ¤– [Extractor] Total characters to analyze: ${totalChars}`);
 
     // Stage 2: Process in batches (5 pages at a time for manageable API calls)
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 3;
     const batches = [];
     for (let i = 0; i < pages.length; i += BATCH_SIZE) {
       batches.push(pages.slice(i, i + BATCH_SIZE));
@@ -784,6 +896,17 @@ export async function extractFamilyDataFromPDF(
         progress: 65,
       });
     }
+
+    const beforeDedupe = allPeople.length;
+    allPeople = dedupeExtractedPeople(allPeople);
+    allRelationships = dedupeExtractedRelationships(
+      allRelationships,
+      allPeople,
+    );
+    console.log(
+      `[Extractor] Deduped people: ${beforeDedupe} -> ${allPeople.length}; ` +
+        `relationships: ${allRelationships.length}`,
+    );
 
     console.log(`ðŸ¤– [Extractor] Total extracted before validation: ${allPeople.length} people, ${allRelationships.length} relationships`);
     

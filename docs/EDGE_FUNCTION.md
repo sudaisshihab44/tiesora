@@ -53,7 +53,7 @@ Optional:
 npx supabase secrets set GROQ_MODEL=openai/gpt-oss-120b
 # or
 npx supabase secrets set GEMINI_API_KEY=...
-npx supabase secrets set GEMINI_MODEL=gemini-2.0-flash
+npx supabase secrets set GEMINI_MODEL=gemini-3.8-flash
 ```
 
 Do not add these to `.env` or any `VITE_*` variable.

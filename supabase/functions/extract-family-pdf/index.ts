@@ -8,9 +8,10 @@
 //   GROQ_API_KEY   (preferred)  or  GEMINI_API_KEY
 //
 // Optional secrets:
-//   AI_PROVIDER    'gemini' or 'groq' (defaults to gemini when GEMINI_API_KEY is set)
+//   AI_PROVIDER    'gemini' or 'groq' (defaults to gemini; the other is a fallback)
 //   GROQ_MODEL     default: openai/gpt-oss-120b
-//   GEMINI_MODEL   default: gemini-2.0-flash
+//   GEMINI_MODEL   default: gemini-3.5-flash-lite
+//   GEMINI_MODEL_FALLBACKS default: gemini-3.6-flash,gemini-3.8-flash
 //
 // Deploy:
 //   supabase functions deploy extract-family-pdf
@@ -75,9 +76,11 @@ async function callGroq(prompt: string, apiKey: string): Promise<string> {
   return data?.choices?.[0]?.message?.content ?? '';
 }
 
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const model = Deno.env.get('GEMINI_MODEL') || 'gemini-2.0-flash';
-
+async function callGemini(
+  prompt: string,
+  apiKey: string,
+  model: string,
+): Promise<string> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -87,7 +90,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 32768,
           responseMimeType: 'application/json',
         },
       }),
@@ -167,20 +170,47 @@ serve(async (req) => {
 
     const groqKey = Deno.env.get('GROQ_API_KEY');
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    const configuredProvider = (Deno.env.get('AI_PROVIDER') || '').toLowerCase();
-    const provider = configuredProvider || (geminiKey ? 'gemini' : 'groq');
+    const preferred = (Deno.env.get('AI_PROVIDER') || 'gemini').toLowerCase();
 
-    if (provider === 'gemini') {
-      if (!geminiKey) {
-        return json(
-          {
-            error:
-              'AI_PROVIDER=gemini but GEMINI_API_KEY is not set as a Supabase Edge Function secret.',
-          },
-          500,
-        );
-      }
-    } else if (!groqKey) {
+    const primaryGeminiModel =
+      Deno.env.get('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
+    const geminiFallbacks = (
+      Deno.env.get('GEMINI_MODEL_FALLBACKS') ||
+      'gemini-3.6-flash,gemini-3.8-flash'
+    )
+      .split(',')
+      .map((model) => model.trim())
+      .filter(Boolean);
+
+    const geminiModels = Array.from(
+      new Set([primaryGeminiModel, ...geminiFallbacks]),
+    );
+
+    type Attempt =
+      | { provider: 'gemini'; model: string }
+      | { provider: 'groq' };
+
+    const attempts: Attempt[] = [];
+
+    const addGeminiAttempts = () => {
+      if (!geminiKey) return;
+      geminiModels.forEach((model) =>
+        attempts.push({ provider: 'gemini', model }),
+      );
+    };
+    const addGroqAttempt = () => {
+      if (groqKey) attempts.push({ provider: 'groq' });
+    };
+
+    if (preferred === 'groq') {
+      addGroqAttempt();
+      addGeminiAttempts();
+    } else {
+      addGeminiAttempts();
+      addGroqAttempt();
+    }
+
+    if (attempts.length === 0) {
       return json(
         {
           error:
@@ -190,16 +220,42 @@ serve(async (req) => {
       );
     }
 
-    const text =
-      provider === 'gemini'
-        ? await callGemini(prompt, geminiKey!)
-        : await callGroq(prompt, groqKey!);
+    const providerErrors: string[] = [];
 
-    if (!text.trim()) {
-      return json({ error: 'AI provider returned an empty response' }, 502);
+    for (const attempt of attempts) {
+      const label =
+        attempt.provider === 'gemini'
+          ? `gemini:${attempt.model}`
+          : 'groq';
+
+      try {
+        const text =
+          attempt.provider === 'gemini'
+            ? await callGemini(prompt, geminiKey!, attempt.model)
+            : await callGroq(prompt, groqKey!);
+
+        if (text.trim()) {
+          return json({ text, provider: label });
+        }
+
+        providerErrors.push(`${label}: empty response`);
+      } catch (providerError) {
+        const message =
+          providerError instanceof Error
+            ? providerError.message
+            : String(providerError);
+        providerErrors.push(`${label}: ${message}`);
+        console.warn(
+          `[extract-family-pdf] ${label} failed; trying the next attempt:`,
+          message,
+        );
+      }
     }
 
-    return json({ text });
+    return json(
+      { error: `All AI providers failed: ${providerErrors.join(' | ')}` },
+      502,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[extract-family-pdf]', message);
