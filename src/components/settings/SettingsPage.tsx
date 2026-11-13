@@ -384,8 +384,7 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
           </div>
         )}
 
-        {/* File Upload Drop Zone */}
-        {!importPreview ? (
+        {!isSupabaseConfigured && (!importPreview ? (
           <div className="border-2 border-dashed border-stone-200 hover:border-emerald-700/60 rounded-2xl p-6 text-center bg-stone-50/50 transition-colors">
             <input
               type="file"
@@ -468,7 +467,7 @@ CREATE TABLE IF NOT EXISTS public.relationships (...);
               </button>
             </div>
           </div>
-        )}
+        ))}
       </div>
 
       {/* Live Unit Test & Verification Suite */}

@@ -34,7 +34,7 @@ Status: **implemented**, pending authenticated browser verification.
 |---|---|
 | Pending Supabase invitations are listed in User Management and can be regenerated or revoked. | Done — Phase 4 |
 | Audit log entries are written by Supabase-backed client actions, with best-effort failure handling. | Done — Phase 5 |
-| JSON restore/overwrite is disabled in Supabase mode. | Phase 9 / import pipeline |
+| JSON restore/overwrite is retired in Supabase mode; the upload UI is hidden and the PDF pipeline is canonical. | Done — Phase 9 |
 | `ImportReviewDashboard.tsx` is type-clean; the PDF import flow has been used successfully on the real dataset. | Done — Phase 6 |
 | Real-time subscriptions are enabled for family tables with a debounced refresh. | Done — Phase 5 |
 | Demo mode is an in-memory read-only sandbox with no Supabase or localStorage writes. | Done — Phase 7 |

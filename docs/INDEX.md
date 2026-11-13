@@ -23,11 +23,12 @@ Implementation history:
 | `docs/PHASE_5.md` | Audit logging and realtime collaboration |
 | `docs/PHASE_7.md` | Read-only public demo sandbox |
 | `docs/PHASE_8.md` | Docs consolidation, large-tree list default, dependency audit |
+| `docs/PHASE_9.md` | Legacy localStorage decision, RLS audit, production readiness |
 
-Remaining phases:
+Remaining optional work:
 
-- **Phase 8** — documentation consolidation (done), large-tree list default
-  (done), dev-only PWA dependency advisories (deferred: requires a deliberate
-  `vite-plugin-pwa` version change).
-- **Phase 9** — legacy localStorage data decision, sample-family cleanup,
-  final production checklist.
+- Dev-only PWA dependency advisories (requires a deliberate `vite-plugin-pwa`
+  version change).
+- Delete the three empty families owned by other emails if their owners
+  confirm.
+- Imported-tree spot checks and missing relationship links.
