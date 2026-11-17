@@ -1,6 +1,7 @@
 import type { FamilyPerson } from '../../types';
 import { db, defined, execute, queryMany, queryOne } from './core';
 import { recordAudit } from './auditLogs';
+import { deleteFamilyPhoto } from './storage';
 import { mapPerson, toDbDate } from './mappers';
 import type { PersonRow } from './rows';
 
@@ -147,6 +148,14 @@ export async function deletePerson(personId: string): Promise<void> {
     db().from('family_people').delete().eq('id', personId),
     'delete person',
   );
+
+  if (person.avatar_path) {
+    try {
+      await deleteFamilyPhoto(person.avatar_path);
+    } catch (error) {
+      console.warn('[db] person deleted, profile photo cleanup failed:', error);
+    }
+  }
 
   await recordAudit({
     family_id: person.family_id,

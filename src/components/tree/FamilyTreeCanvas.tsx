@@ -1,8 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { FamilyPerson, Relationship, TreeViewMode } from '../../types';
 import { computeTreeLayout } from '../../utils/treeLayout';
+import {
+  buildGenerationOptions,
+  computeEffectiveGenerations,
+  pickRootPerson,
+} from '../../utils/generations';
 import { PersonCard } from './PersonCard';
 import { TreeControls } from './TreeControls';
+import { GenerationBar } from './GenerationBar';
 import { ImportFamilyTreeModal } from './ImportFamilyTreeModal';
 import { Users, Calendar, MapPin, Heart, Plus, Edit } from 'lucide-react';
 
@@ -45,32 +51,164 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const [viewMode, setViewMode] = useState<TreeViewMode>('tree');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [focusedGeneration, setFocusedGeneration] = useState<number | 'all'>('all');
 
-  // Large trees are much faster in the directory list. Switch once when the
-  // data arrives, while still letting the user open the canvas manually.
-  const LARGE_FAMILY_THRESHOLD = 400;
+  // Large trees open on a single generation so the canvas stays legible. The
+  // user can return to the full tree from the generation selector.
+  const LARGE_FAMILY_THRESHOLD = 250;
   const isLargeFamily = people.length > LARGE_FAMILY_THRESHOLD;
-  const autoSwitchedToLargeView = useRef(false);
+  const autoFocusedGeneration = useRef(false);
+
+  const generationLevels = useMemo(
+    () => computeEffectiveGenerations(people, relationships),
+    [people, relationships],
+  );
+
+  const layoutPeople = useMemo(
+    () =>
+      people.map((person) => ({
+        ...person,
+        generation_level:
+          generationLevels.get(person.id) ?? person.generation_level ?? 1,
+      })),
+    [people, generationLevels],
+  );
+
+  const selectedLayoutPerson = selectedPerson
+    ? layoutPeople.find((person) => person.id === selectedPerson.id)
+    : undefined;
+
+  const rootPerson = useMemo(
+    () =>
+      pickRootPerson(
+        layoutPeople,
+        relationships,
+        generationLevels,
+        selectedLayoutPerson,
+      ),
+    [layoutPeople, relationships, generationLevels, selectedLayoutPerson],
+  );
+
+  const rootLevel = rootPerson
+    ? generationLevels.get(rootPerson.id) ?? rootPerson.generation_level ?? 1
+    : 1;
+
+  const generationOptions = useMemo(
+    () => buildGenerationOptions(layoutPeople, generationLevels, rootLevel),
+    [layoutPeople, generationLevels, rootLevel],
+  );
+
   useEffect(() => {
-    if (isLargeFamily && !autoSwitchedToLargeView.current) {
-      autoSwitchedToLargeView.current = true;
-      setViewMode('list');
+    if (autoFocusedGeneration.current || people.length === 0) return;
+    autoFocusedGeneration.current = true;
+    if (isLargeFamily && rootLevel > 0) {
+      setFocusedGeneration(rootLevel);
     }
-  }, [isLargeFamily]);
+  }, [people.length, isLargeFamily, rootLevel]);
+
+  useEffect(() => {
+    if (
+      focusedGeneration !== 'all' &&
+      !generationOptions.some((option) => option.level === focusedGeneration)
+    ) {
+      setFocusedGeneration('all');
+    }
+  }, [focusedGeneration, generationOptions]);
+
+  // Hide descendants of collapsed branches from the canvas entirely.
+  const hiddenByCollapse = useMemo(() => {
+    const hidden = new Set<string>();
+    if (collapsedIds.size === 0) return hidden;
+
+    const childMap = new Map<string, string[]>();
+    for (const relationship of relationships) {
+      if (
+        !['parent', 'adoptive_parent', 'step_parent'].includes(
+          relationship.relationship_type,
+        ) ||
+        relationship.source_person_id === relationship.target_person_id
+      ) {
+        continue;
+      }
+      const children = childMap.get(relationship.source_person_id) || [];
+      children.push(relationship.target_person_id);
+      childMap.set(relationship.source_person_id, children);
+    }
+
+    const stack: string[] = [];
+    for (const id of collapsedIds) {
+      stack.push(...(childMap.get(id) || []));
+    }
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      if (hidden.has(id)) continue;
+      hidden.add(id);
+      stack.push(...(childMap.get(id) || []));
+    }
+
+    // The active root and selected profile must always remain visible.
+    if (selectedPerson) hidden.delete(selectedPerson.id);
+    if (rootPerson) hidden.delete(rootPerson.id);
+    return hidden;
+  }, [collapsedIds, relationships, selectedPerson?.id, rootPerson?.id]);
+
+  const generationFilteredPeople = useMemo(
+    () =>
+      focusedGeneration === 'all'
+        ? layoutPeople
+        : layoutPeople.filter(
+            (person) =>
+              (generationLevels.get(person.id) ?? person.generation_level) ===
+              focusedGeneration,
+          ),
+    [layoutPeople, generationLevels, focusedGeneration],
+  );
+
+  const visiblePeople = useMemo(
+    () => generationFilteredPeople.filter((person) => !hiddenByCollapse.has(person.id)),
+    [generationFilteredPeople, hiddenByCollapse],
+  );
+
+  const generationLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        generationOptions.map((option) => [
+          option.level,
+          `Generation ${option.level} · ${option.relativeLabel}`,
+        ]),
+      ) as Record<number, string>,
+    [generationOptions],
+  );
+
+  const parentsWithChildren = useMemo(
+    () =>
+      new Set(
+        relationships
+          .filter(
+            (relationship) =>
+              ['parent', 'adoptive_parent', 'step_parent'].includes(
+                relationship.relationship_type,
+              ) &&
+              relationship.source_person_id !== relationship.target_person_id,
+          )
+          .map((relationship) => relationship.source_person_id),
+      ),
+    [relationships],
+  );
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
 
   // Filtered people set based on viewMode
   const activePeople = useMemo(() => {
-    if (viewMode === 'tree' || viewMode === 'list' || !selectedPerson) {
-      return people;
+    if (viewMode === 'tree' || viewMode === 'list' || !selectedLayoutPerson) {
+      return visiblePeople;
     }
 
     if (viewMode === 'ancestors') {
-      // Find all ancestors of selectedPerson
-      const ancestorIds = new Set<string>([selectedPerson.id]);
-      const queue = [selectedPerson.id];
+      // Find all ancestors of the selected person
+      const ancestorIds = new Set<string>([selectedLayoutPerson.id]);
+      const queue = [selectedLayoutPerson.id];
       while (queue.length > 0) {
         const curr = queue.shift()!;
         relationships.forEach(r => {
@@ -82,13 +220,13 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           }
         });
       }
-      return people.filter(p => ancestorIds.has(p.id));
+      return visiblePeople.filter(p => ancestorIds.has(p.id));
     }
 
     if (viewMode === 'descendants') {
-      // Find all descendants of selectedPerson
-      const descendantIds = new Set<string>([selectedPerson.id]);
-      const queue = [selectedPerson.id];
+      // Find all descendants of the selected person
+      const descendantIds = new Set<string>([selectedLayoutPerson.id]);
+      const queue = [selectedLayoutPerson.id];
       while (queue.length > 0) {
         const curr = queue.shift()!;
         relationships.forEach(r => {
@@ -100,16 +238,16 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           }
         });
       }
-      return people.filter(p => descendantIds.has(p.id));
+      return visiblePeople.filter(p => descendantIds.has(p.id));
     }
 
-    return people;
-  }, [people, relationships, viewMode, selectedPerson]);
+    return visiblePeople;
+  }, [visiblePeople, relationships, viewMode, selectedLayoutPerson]);
 
   // Compute Layout
   const layout = useMemo(() => {
-    return computeTreeLayout(activePeople, relationships, collapsedIds);
-  }, [activePeople, relationships, collapsedIds]);
+    return computeTreeLayout(activePeople, relationships, collapsedIds, generationLabels);
+  }, [activePeople, relationships, collapsedIds, generationLabels]);
 
   // Ancestor / descendant highlight sets
   const { ancestorIds, descendantIds } = useMemo(() => {
@@ -177,19 +315,22 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     const padding = 80;
     const scaleX = (width - padding * 2) / (b.width || 800);
     const scaleY = (height - padding * 2) / (b.height || 600);
-    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.35), 1.1);
+    const minZoom = focusedGeneration === 'all' ? 0.35 : 0.6;
+    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), minZoom), 1.1);
 
     const centerX = width / 2 - ((b.minX + b.maxX) / 2) * newZoom;
     const centerY = height / 2 - ((b.minY + b.maxY) / 2) * newZoom;
 
     setZoom(newZoom);
     setPan({ x: centerX, y: centerY });
-  }, [layout.bounds, layout.nodes.length]);
+  }, [layout.bounds, layout.nodes.length, focusedGeneration]);
 
-  // Initial fit
+  // Re-fit when the generation filter or view mode changes.
   useEffect(() => {
-    fitToScreen();
-  }, []);
+    if (viewMode === 'list') return;
+    const frame = requestAnimationFrame(() => fitToScreen());
+    return () => cancelAnimationFrame(frame);
+  }, [focusedGeneration, viewMode, visiblePeople.length, layout.nodes.length, fitToScreen]);
 
   // Zoom handlers
   const handleZoomIn = () => setZoom(z => Math.min(z + 0.15, 2.0));
@@ -283,8 +424,27 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     });
   };
 
+  const handleSelectPerson = (person: FamilyPerson) => {
+    const level =
+      generationLevels.get(person.id) ?? person.generation_level ?? 1;
+    if (focusedGeneration !== 'all' && level !== focusedGeneration) {
+      setFocusedGeneration(level);
+    }
+    onSelectPerson(person);
+  };
+
   return (
-    <div className="relative w-full h-[calc(100vh-3.5rem)] bg-stone-50 overflow-hidden select-none">
+    <div className="relative w-full h-[calc(100vh-3.5rem)] bg-stone-50 overflow-hidden select-none flex flex-col">
+      <GenerationBar
+        options={generationOptions}
+        focusedGeneration={focusedGeneration}
+        onChange={setFocusedGeneration}
+        rootPerson={rootPerson}
+        visibleCount={activePeople.length}
+        totalCount={people.length}
+      />
+
+      <div className="relative flex-1 min-h-0 overflow-hidden">
       {/* Top Floating Controls */}
       <TreeControls
         zoom={zoom}
@@ -294,11 +454,8 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
         onFitToScreen={fitToScreen}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        people={people}
-        onSelectPerson={(p) => {
-          onSelectPerson(p);
-          centerOnPerson(p.id);
-        }}
+        people={layoutPeople}
+        onSelectPerson={handleSelectPerson}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onAddNewMember={onAddRelative ? () => onAddRelative() : undefined}
@@ -328,12 +485,14 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
               <div>
                 <h3 className="text-lg font-bold text-stone-900 tracking-tight">Family Directory</h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  {people.length} members across {layout.generationLevels.length} generations.
+                  {focusedGeneration === 'all'
+                    ? `${activePeople.length} members across ${generationOptions.length} generations.`
+                    : `${activePeople.length} members in Generation ${focusedGeneration}.`}
                 </p>
                 {isLargeFamily && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2 inline-block">
-                    Large family: list view is the fastest way to browse. Use the
-                    Tree button when you need the canvas.
+                    Large family: select a generation above for the clearest view,
+                    or use the list for fast searching.
                   </p>
                 )}
               </div>
@@ -362,7 +521,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {people.map(person => (
+                  {activePeople.map(person => (
                     <tr
                       key={person.id}
                       onClick={() => onSelectPerson(person)}
@@ -409,7 +568,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
 
             {/* Mobile card list */}
             <div className="md:hidden space-y-2">
-              {people.map(person => (
+              {activePeople.map(person => (
                 <div
                   key={person.id}
                   onClick={() => onSelectPerson(person)}
@@ -593,9 +752,9 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                     person={node.person}
                     isSelected={isSelected}
                     isHighlighted={isAncestor || isDescendant}
-                    hasChildren={node.children.length > 0}
+                    hasChildren={parentsWithChildren.has(node.person.id)}
                     isCollapsed={node.collapsed}
-                    onSelect={onSelectPerson}
+                    onSelect={handleSelectPerson}
                     onAddRelative={onAddRelative}
                     onExploreRelationship={onExploreRelationship}
                     onToggleCollapse={handleToggleCollapse}
@@ -607,6 +766,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

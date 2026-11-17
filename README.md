@@ -8,7 +8,8 @@ Tiesora is a modern, beautifully designed family tree application that helps you
 
 ## ✨ Features
 
-- **Interactive Family Tree** — Visual family tree with drag-to-pan canvas
+- **Interactive Family Tree** — Generation selector, zoom/pan, branch collapse,
+  ancestor/descendant highlighting, and profile photos
 - **Relationship Explorer** — Discover complex relationships between any two family members
 - **Memory Timeline** — Upload and organize family photos and stories
 - **Event Calendar** — Track birthdays, anniversaries, and reunions

@@ -137,7 +137,7 @@ export const PersonProfileDrawer: React.FC<PersonProfileDrawerProps> = ({
         <div className="flex items-start gap-4">
           <div className="relative shrink-0">
             {person.avatar_path ? (
-              <img
+              <FamilyImage
                 src={person.avatar_path}
                 alt={person.display_name}
                 referrerPolicy="no-referrer"

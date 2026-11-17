@@ -1,5 +1,6 @@
 import React from 'react';
 import { FamilyPerson } from '../../types';
+import { FamilyImage } from '../common/FamilyImage';
 import { Heart, UserPlus, Compass, Edit3 } from 'lucide-react';
 
 interface PersonCardProps {
@@ -70,7 +71,7 @@ export const PersonCard: React.FC<PersonCardProps> = ({
         {/* Avatar or Initials */}
         <div className="relative shrink-0">
           {person.avatar_path ? (
-            <img
+            <FamilyImage
               src={person.avatar_path}
               alt={person.display_name}
               referrerPolicy="no-referrer"

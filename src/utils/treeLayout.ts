@@ -31,11 +31,14 @@ const CARD_WIDTH = 240;
 const CARD_HEIGHT = 110;
 const HORIZONTAL_GAP = 60;
 const VERTICAL_LEVEL_GAP = 190;
+const PARENT_RELATIONSHIP_TYPES = ['parent', 'adoptive_parent', 'step_parent'];
+const SPOUSE_RELATIONSHIP_TYPES = ['spouse', 'partner'];
 
 export function computeTreeLayout(
   people: FamilyPerson[],
   relationships: Relationship[],
-  collapsedPersonIds: Set<string> = new Set()
+  collapsedPersonIds: Set<string> = new Set(),
+  generationLabels: Record<number, string> = {}
 ): TreeLayoutResult {
   if (people.length === 0) {
     return {
@@ -52,7 +55,8 @@ export function computeTreeLayout(
   const spousesMap = new Map<string, string[]>();
 
   relationships.forEach(rel => {
-    if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationship_type)) {
+    if (rel.source_person_id === rel.target_person_id) return;
+    if (PARENT_RELATIONSHIP_TYPES.includes(rel.relationship_type)) {
       const c = parentToChildren.get(rel.source_person_id) || [];
       c.push(rel.target_person_id);
       parentToChildren.set(rel.source_person_id, c);
@@ -60,7 +64,7 @@ export function computeTreeLayout(
       const p = childToParents.get(rel.target_person_id) || [];
       p.push(rel.source_person_id);
       childToParents.set(rel.target_person_id, p);
-    } else if (['spouse', 'partner'].includes(rel.relationship_type)) {
+    } else if (SPOUSE_RELATIONSHIP_TYPES.includes(rel.relationship_type)) {
       const s1 = spousesMap.get(rel.source_person_id) || [];
       s1.push(rel.target_person_id);
       spousesMap.set(rel.source_person_id, s1);
@@ -99,7 +103,7 @@ export function computeTreeLayout(
   sortedLevels.forEach(lvl => {
     generationLevels.push({
       level: lvl,
-      label: levelLabels[lvl] || `Generation ${lvl}`,
+      label: generationLabels[lvl] || levelLabels[lvl] || `Generation ${lvl}`,
       y: currentY - 40,
     });
 
@@ -164,14 +168,21 @@ export function computeTreeLayout(
   // Calculate edges for rendering
   const edges: TreeEdge[] = [];
   const processedSpousePairs = new Set<string>();
+  const processedEdges = new Set<string>();
 
   relationships.forEach(rel => {
+    if (rel.source_person_id === rel.target_person_id) return;
+
+    const isSpouse = SPOUSE_RELATIONSHIP_TYPES.includes(rel.relationship_type);
+    const isParent = PARENT_RELATIONSHIP_TYPES.includes(rel.relationship_type);
+    if (!isSpouse && !isParent) return;
+
     const sourcePos = nodePositions.get(rel.source_person_id);
     const targetPos = nodePositions.get(rel.target_person_id);
 
     if (!sourcePos || !targetPos) return;
 
-    if (['spouse', 'partner'].includes(rel.relationship_type)) {
+    if (isSpouse) {
       const pairKey = [rel.source_person_id, rel.target_person_id].sort().join('-');
       if (processedSpousePairs.has(pairKey)) return;
       processedSpousePairs.add(pairKey);
@@ -196,6 +207,10 @@ export function computeTreeLayout(
       // Parent -> Child
       // Check if source branch is collapsed
       if (collapsedPersonIds.has(rel.source_person_id)) return;
+
+      const edgeKey = `${rel.relationship_type}:${rel.source_person_id}:${rel.target_person_id}`;
+      if (processedEdges.has(edgeKey)) return;
+      processedEdges.add(edgeKey);
 
       edges.push({
         id: rel.id,
