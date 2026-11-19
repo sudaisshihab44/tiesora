@@ -36,13 +36,19 @@ Result on the real family:
 | Metric | Before | After |
 |---|---|---|
 | People | 675 | 675 |
-| Relationships | 365 | 511 |
+| Relationships | 365 | 510 |
 | People with no relationships | 263 | 113 |
 | Parent/child generation conflicts | 9 | 0 |
 | Maximum generation | 9 | 10 |
 
 An audit entry was written to `audit_logs`:
 `repaired imported tree` and `repaired generation levels`.
+
+A separate cleanup removed one impossible imported spouse link
+(Ghulam Mohiuddin Khan ↔ Lala Mian) where the “spouse” was actually the
+father-in-law. The source record remains in staging, but the live relationship
+was deleted. The tree also suppresses any remaining spouse link that is a
+direct parent/child or spans more than one generation.
 
 The family description was also corrected from “56-page” to “61-page”.
 

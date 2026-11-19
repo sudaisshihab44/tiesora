@@ -12,6 +12,14 @@ import { GenerationBar } from './GenerationBar';
 import { ImportFamilyTreeModal } from './ImportFamilyTreeModal';
 import { Users, Calendar, MapPin, Heart, Plus, Edit } from 'lucide-react';
 
+const PARENT_RELATIONSHIP_TYPES = new Set([
+  'parent',
+  'adoptive_parent',
+  'step_parent',
+]);
+
+const SPOUSE_RELATIONSHIP_TYPES = new Set(['spouse', 'partner']);
+
 interface FamilyTreeCanvasProps {
   people: FamilyPerson[];
   relationships: Relationship[];
@@ -152,17 +160,45 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     return hidden;
   }, [collapsedIds, relationships, selectedPerson?.id, rootPerson?.id]);
 
-  const generationFilteredPeople = useMemo(
-    () =>
-      focusedGeneration === 'all'
-        ? layoutPeople
-        : layoutPeople.filter(
-            (person) =>
-              (generationLevels.get(person.id) ?? person.generation_level) ===
-              focusedGeneration,
-          ),
-    [layoutPeople, generationLevels, focusedGeneration],
-  );
+  const generationFilteredPeople = useMemo(() => {
+    if (focusedGeneration === 'all') return layoutPeople;
+
+    const focusedIds = new Set(
+      layoutPeople
+        .filter(
+          (person) =>
+            (generationLevels.get(person.id) ?? person.generation_level) ===
+            focusedGeneration,
+        )
+        .map((person) => person.id),
+    );
+    if (focusedIds.size === 0) return [];
+
+    const includedIds = new Set(focusedIds);
+
+    // Keep the selected generation connected to its direct family: parents,
+    // children, and spouses. Only expand one hop from the focused generation.
+    for (const relationship of relationships) {
+      const sourceFocused = focusedIds.has(relationship.source_person_id);
+      const targetFocused = focusedIds.has(relationship.target_person_id);
+      if (!sourceFocused && !targetFocused) continue;
+
+      if (PARENT_RELATIONSHIP_TYPES.has(relationship.relationship_type)) {
+        if (sourceFocused) includedIds.add(relationship.target_person_id);
+        if (targetFocused) includedIds.add(relationship.source_person_id);
+      } else if (SPOUSE_RELATIONSHIP_TYPES.has(relationship.relationship_type)) {
+        const sourceLevel =
+          generationLevels.get(relationship.source_person_id) ?? 1;
+        const targetLevel =
+          generationLevels.get(relationship.target_person_id) ?? 1;
+        if (Math.abs(sourceLevel - targetLevel) > 1) continue;
+        if (sourceFocused) includedIds.add(relationship.target_person_id);
+        if (targetFocused) includedIds.add(relationship.source_person_id);
+      }
+    }
+
+    return layoutPeople.filter((person) => includedIds.has(person.id));
+  }, [layoutPeople, generationLevels, focusedGeneration, relationships]);
 
   const visiblePeople = useMemo(
     () => generationFilteredPeople.filter((person) => !hiddenByCollapse.has(person.id)),

@@ -2,6 +2,26 @@
 
 Status: implemented 2026-11-18.
 
+## Hierarchical layout
+
+The tree is a family-unit hierarchy, not a flat generation list:
+
+- Spouses are placed side by side.
+- Their children are centered beneath the couple.
+- Each child couple becomes its own unit and continues the hierarchy.
+- Multiple root branches are laid out left to right.
+- Disconnected members keep their own generation row.
+- Couples that span generations are placed on the younger partner's row so
+  parent and child rows cannot collide.
+- Invalid spouse links (direct parent/child, in-laws, or a gap of more than one
+  generation) are not drawn and do not form a couple unit. One definite
+  parent-in-law spouse row was removed from the database; the rest are only
+  suppressed visually pending review.
+
+Generation focus keeps the selected generation **plus its direct parents,
+children, and spouses**, one hop only. This preserves the connecting lines
+without rendering every unrelated generation.
+
 ## Generation calculation
 
 Generation numbers are recalculated from parent/child relationships in
@@ -67,9 +87,11 @@ change relationships.
 ## Verification
 
 - 43 cards in Generation 1, 2 in Generation 2, 11 in Generation 3 — no overlaps
+- Generation 2 focus shows 12 cards: the selected members, their parents,
+  children, and direct spouses, with parents above children
 - Collapsing Darvesh's branch removes his descendants from the visible count
 - Search for a Generation 7 member switches the selector to Generation 7
-- All Generations shows 675 cards with no console errors
+- All Generations shows 675 cards with **zero overlaps** and no console errors
 - Profile photo upload, signed-URL display, and deletion cleanup verified
 - Mobile 390px: generation bar, canvas, and bottom navigation fit without page
   overflow

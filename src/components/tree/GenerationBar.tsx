@@ -113,6 +113,12 @@ export const GenerationBar: React.FC<GenerationBarProps> = ({
       <p className="text-[10px] text-stone-400 mt-1 sm:hidden truncate">
         Root: {rootPerson?.display_name || 'All members'} · select a member to recenter
       </p>
+      {focusedGeneration !== 'all' && (
+        <p className="text-[10px] text-stone-400 mt-1">
+          Showing Generation {focusedGeneration} with its direct parents, children,
+          and spouses.
+        </p>
+      )}
     </div>
   );
 };
