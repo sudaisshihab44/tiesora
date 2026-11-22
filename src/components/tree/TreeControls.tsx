@@ -6,10 +6,8 @@ import {
   RotateCcw,
   Search,
   Plus,
-  Layers,
   GitFork,
   List,
-  UserCheck,
   X,
   FileUp,
 } from 'lucide-react';
@@ -30,7 +28,6 @@ interface TreeControlsProps {
   onViewModeChange: (mode: TreeViewMode) => void;
   onAddNewMember?: () => void;
   onImportFamilyTree?: () => void;
-  selectedPerson?: FamilyPerson;
 }
 
 export const TreeControls: React.FC<TreeControlsProps> = ({
@@ -47,7 +44,6 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
   onViewModeChange,
   onAddNewMember,
   onImportFamilyTree,
-  selectedPerson,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
 
@@ -76,30 +72,6 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
           >
             <GitFork className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Tree</span>
-          </button>
-          <button
-            onClick={() => onViewModeChange('ancestors')}
-            className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap ${
-              viewMode === 'ancestors'
-                ? 'bg-white text-emerald-900 shadow-xs font-semibold'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-            title={selectedPerson ? `Ancestors of ${selectedPerson.display_name}` : 'Select a person first'}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Ancestors</span>
-          </button>
-          <button
-            onClick={() => onViewModeChange('descendants')}
-            className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap ${
-              viewMode === 'descendants'
-                ? 'bg-white text-emerald-900 shadow-xs font-semibold'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-            title={selectedPerson ? `Descendants of ${selectedPerson.display_name}` : 'Select a person first'}
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Descendants</span>
           </button>
           <button
             onClick={() => onViewModeChange('list')}

@@ -216,7 +216,7 @@ export interface AuditLog {
 }
 
 // Tree view specific types
-export type TreeViewMode = 'tree' | 'ancestors' | 'descendants' | 'list';
+export type TreeViewMode = 'tree' | 'list';
 
 export interface TreeCoordinateNode {
   person: FamilyPerson;

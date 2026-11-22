@@ -236,55 +236,10 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Filtered people set based on viewMode
-  const activePeople = useMemo(() => {
-    if (viewMode === 'tree' || viewMode === 'list' || !selectedLayoutPerson) {
-      return visiblePeople;
-    }
-
-    if (viewMode === 'ancestors') {
-      // Find all ancestors of the selected person
-      const ancestorIds = new Set<string>([selectedLayoutPerson.id]);
-      const queue = [selectedLayoutPerson.id];
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        relationships.forEach(r => {
-          if (r.target_person_id === curr && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationship_type)) {
-            if (!ancestorIds.has(r.source_person_id)) {
-              ancestorIds.add(r.source_person_id);
-              queue.push(r.source_person_id);
-            }
-          }
-        });
-      }
-      return visiblePeople.filter(p => ancestorIds.has(p.id));
-    }
-
-    if (viewMode === 'descendants') {
-      // Find all descendants of the selected person
-      const descendantIds = new Set<string>([selectedLayoutPerson.id]);
-      const queue = [selectedLayoutPerson.id];
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        relationships.forEach(r => {
-          if (r.source_person_id === curr && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationship_type)) {
-            if (!descendantIds.has(r.target_person_id)) {
-              descendantIds.add(r.target_person_id);
-              queue.push(r.target_person_id);
-            }
-          }
-        });
-      }
-      return visiblePeople.filter(p => descendantIds.has(p.id));
-    }
-
-    return visiblePeople;
-  }, [visiblePeople, relationships, viewMode, selectedLayoutPerson]);
-
   // Compute Layout
   const layout = useMemo(() => {
-    return computeTreeLayout(activePeople, relationships, collapsedIds, generationLabels);
-  }, [activePeople, relationships, collapsedIds, generationLabels]);
+    return computeTreeLayout(visiblePeople, relationships, collapsedIds, generationLabels);
+  }, [visiblePeople, relationships, collapsedIds, generationLabels]);
 
   // Ancestor / descendant highlight sets
   const { ancestorIds, descendantIds } = useMemo(() => {
@@ -477,7 +432,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
         focusedGeneration={focusedGeneration}
         onChange={setFocusedGeneration}
         rootPerson={rootPerson}
-        visibleCount={activePeople.length}
+        visibleCount={visiblePeople.length}
         totalCount={people.length}
       />
 
@@ -497,7 +452,6 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
         onViewModeChange={setViewMode}
         onAddNewMember={onAddRelative ? () => onAddRelative() : undefined}
         onImportFamilyTree={userIsAdmin ? () => setShowImportModal(true) : undefined}
-        selectedPerson={selectedPerson}
       />
 
       {/* Import Family Tree Modal */}
@@ -523,8 +477,8 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                 <h3 className="text-lg font-bold text-stone-900 tracking-tight">Family Directory</h3>
                 <p className="text-xs text-stone-500 mt-0.5">
                   {focusedGeneration === 'all'
-                    ? `${activePeople.length} members across ${generationOptions.length} generations.`
-                    : `${activePeople.length} members in Generation ${focusedGeneration}.`}
+                    ? `${visiblePeople.length} members across ${generationOptions.length} generations.`
+                    : `${visiblePeople.length} members in Generation ${focusedGeneration}.`}
                 </p>
                 {isLargeFamily && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2 inline-block">
@@ -558,7 +512,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {activePeople.map(person => (
+                  {visiblePeople.map(person => (
                     <tr
                       key={person.id}
                       onClick={() => onSelectPerson(person)}
@@ -603,7 +557,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
 
             {/* Mobile card list */}
             <div className="md:hidden space-y-2">
-              {activePeople.map(person => (
+              {visiblePeople.map(person => (
                 <div
                   key={person.id}
                   onClick={() => onSelectPerson(person)}

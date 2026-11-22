@@ -242,7 +242,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <h3 className="text-base font-bold text-stone-900">Interactive Family Tree Canvas</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Pan, zoom, and explore large branches with progressive expansion. Switch seamlessly between dynamic canvas view, ancestor pedigree trees, descendants view, and searchable directory tables.
+              Pan, zoom, and explore large branches with progressive expansion. Switch between the dynamic family-unit canvas, focused generation views, and a searchable directory table.
             </p>
           </div>
 
