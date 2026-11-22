@@ -52,6 +52,12 @@ complete tree.
 For families over 250 people, the tree opens focused on the root generation so
 cards stay readable. The full tree remains one click away.
 
+## View modes
+
+The tree exposes two views: the hierarchical **Tree** canvas and the searchable
+**List** directory. The former Ancestors and Descendants view tabs were removed;
+selecting a person still highlights their lineage as part of the tree.
+
 ## Tree interactions
 
 - Zoom in/out, wheel zoom, pinch zoom, fit-to-screen, reset zoom

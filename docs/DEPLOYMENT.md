@@ -8,7 +8,7 @@ Status: current as of 2026-11-23.
 |---|---|
 | Public URL | `https://tiesora-alpha.vercel.app` |
 | Vercel scope/project | `ahad-4e44/tiesora` |
-| Production app commit | `9263236` |
+| Production app commit | `78f7a33` |
 | Deployment protection | Disabled for this project |
 | Supabase Site URL | `https://tiesora-alpha.vercel.app/` |
 
