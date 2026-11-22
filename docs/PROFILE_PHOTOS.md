@@ -72,4 +72,5 @@ Members without a photo show their initials as the default avatar.
 | Photo after logout/login | Persists and displays |
 | Non-member access | “Object not found” for other family’s object |
 | Member deletion | Photo object cleaned up |
+| Production smoke test | Upload, replace, remove, viewer visibility and RLS verified at `https://tiesora-alpha.vercel.app` |
 | Photo count after cleanup | 675 people, 510 relationships, no test photos |

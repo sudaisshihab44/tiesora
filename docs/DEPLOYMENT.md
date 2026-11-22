@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Status: current as of 2026-11-13.
+Status: current as of 2026-11-23.
 
 ## Current production deployment
 
@@ -8,7 +8,7 @@ Status: current as of 2026-11-13.
 |---|---|
 | Public URL | `https://tiesora-alpha.vercel.app` |
 | Vercel scope/project | `ahad-4e44/tiesora` |
-| Production commit | `82ac2f6` (same tree as `bc45b4d`) |
+| Production app commit | `9263236` |
 | Deployment protection | Disabled for this project |
 | Supabase Site URL | `https://tiesora-alpha.vercel.app/` |
 
@@ -87,7 +87,10 @@ See `docs/EDGE_FUNCTION.md` for details.
 5. Open two sessions and confirm a change appears in the other after ~1–2 s
    (Realtime).
 6. Open the public demo and confirm the read-only banner and sample data.
-7. Confirm `npm run lint`, `npm run test`, and `npm run build` pass.
+7. As admin, add a member with a photo, replace it, then remove it; confirm
+   one storage object at a time and no orphaned file afterwards.
+8. As viewer, confirm the photo is visible but no add/edit/remove controls exist.
+9. Confirm `npm run lint`, `npm run test`, and `npm run build` pass.
 
 ## Notes
 
