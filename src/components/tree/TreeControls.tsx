@@ -14,6 +14,7 @@ import {
   FileUp,
 } from 'lucide-react';
 import { TreeViewMode, FamilyPerson } from '../../types';
+import { MemberAvatar } from '../common/MemberAvatar';
 
 interface TreeControlsProps {
   zoom: number;
@@ -140,9 +141,12 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
                   onClick={() => { onSelectPerson(person); setIsSearchOpen(false); onSearchChange(''); }}
                   className="w-full text-left px-3 py-2 hover:bg-emerald-50 rounded-lg flex items-center justify-between transition-colors group"
                 >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-stone-800 group-hover:text-emerald-950 truncate">{person.display_name}</p>
-                    <p className="text-[10px] text-stone-400">Gen {person.generation_level} · {person.living_status}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MemberAvatar person={person} className="w-6 h-6 text-[10px]" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-stone-800 group-hover:text-emerald-950 truncate">{person.display_name}</p>
+                      <p className="text-[10px] text-stone-400">Gen {person.generation_level} · {person.living_status}</p>
+                    </div>
                   </div>
                   <span className="text-[10px] text-emerald-800 opacity-0 group-hover:opacity-100 font-medium">Locate</span>
                 </button>

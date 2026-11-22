@@ -8,9 +8,13 @@ import type { PersonRow } from './rows';
 export type NewPerson = Omit<
   FamilyPerson,
   'id' | 'created_at' | 'updated_at' | 'created_by'
->;
+> & { id?: string };
 
-export type PersonUpdates = Partial<Omit<NewPerson, 'family_id'>>;
+export type PersonUpdates = Partial<
+  Omit<NewPerson, 'family_id' | 'avatar_path'>
+> & {
+  avatar_path?: string | null;
+};
 
 export async function listPeople(familyId: string): Promise<FamilyPerson[]> {
   const rows = await queryMany<PersonRow>(
@@ -38,6 +42,7 @@ export async function createPerson(
   actorId: string,
 ): Promise<FamilyPerson> {
   const row = {
+    id: input.id || crypto.randomUUID(),
     family_id: input.family_id,
     full_name: input.full_name.trim(),
     display_name: input.display_name.trim() || input.full_name.trim(),

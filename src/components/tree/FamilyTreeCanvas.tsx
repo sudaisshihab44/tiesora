@@ -9,6 +9,7 @@ import {
 import { PersonCard } from './PersonCard';
 import { TreeControls } from './TreeControls';
 import { GenerationBar } from './GenerationBar';
+import { MemberAvatar } from '../common/MemberAvatar';
 import { ImportFamilyTreeModal } from './ImportFamilyTreeModal';
 import { Users, Calendar, MapPin, Heart, Plus, Edit } from 'lucide-react';
 
@@ -565,9 +566,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                     >
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center font-semibold text-xs text-stone-700 shrink-0">
-                            {person.display_name.substring(0, 2).toUpperCase()}
-                          </div>
+                          <MemberAvatar person={person} className="w-7 h-7 text-xs" />
                           <div className="min-w-0">
                             <p className="font-semibold text-stone-900 truncate">{person.display_name}</p>
                             <p className="text-[10px] text-stone-400 truncate">{person.full_name}</p>
@@ -610,9 +609,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                   onClick={() => onSelectPerson(person)}
                   className="bg-white border border-stone-200 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-emerald-700/50 transition-all"
                 >
-                  <div className="w-9 h-9 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center font-semibold text-xs text-stone-700 shrink-0">
-                    {person.display_name.substring(0, 2).toUpperCase()}
-                  </div>
+                  <MemberAvatar person={person} className="w-9 h-9 text-xs" />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-stone-900 text-xs truncate">{person.display_name}</p>
                     <p className="text-[10px] text-stone-400">Gen {person.generation_level} · {person.living_status === 'living' ? 'Living' : 'Deceased'}</p>

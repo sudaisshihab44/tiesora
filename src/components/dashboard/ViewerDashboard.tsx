@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import { FamilyImage } from '../common/FamilyImage';
+import { MemberAvatar } from '../common/MemberAvatar';
 import { toRoman } from '../../utils/roman';
 import {
   Family,
@@ -265,9 +266,7 @@ export const ViewerDashboard: React.FC<ViewerDashboardProps> = ({
                   onClick={() => onSelectPerson(person)}
                   className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition-colors text-left"
                 >
-                  <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px] flex items-center justify-center shrink-0">
-                    {person.display_name.substring(0, 2).toUpperCase()}
-                  </div>
+                  <MemberAvatar person={person} className="w-7 h-7 text-[11px]" />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-stone-900 truncate">
                       {person.display_name}

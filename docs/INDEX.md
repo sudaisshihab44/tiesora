@@ -7,6 +7,7 @@ Canonical docs (start here):
 | `README.md` (repo root) | Product overview, quick start, feature list |
 | `docs/SETUP.md` | Local environment, migrations, Edge secrets, test accounts |
 | `docs/AUTH.md` | Roles, authentication, invitations, security troubleshooting |
+| `docs/PROFILE_PHOTOS.md` | Member photo upload, compression, storage and RLS |
 | `docs/GOOGLE_OAUTH.md` | Google Cloud + Supabase Google provider setup |
 | `docs/EMAIL_SMTP.md` | Email verification and password-reset delivery |
 | `docs/PDF_IMPORT.md` | Import pipeline, provider chain, limits, diagnostics |
@@ -28,6 +29,7 @@ Implementation history:
 | `docs/PHASE_9.md` | Legacy localStorage decision, RLS audit, production readiness |
 | `docs/DATA_REPAIR_2026-11-13.md` | PDF layout-based generation and parent-link repair |
 | `docs/INTERACTIVE_TREE.md` | Generation selector, tree interactions, profile photos |
+| `docs/PROFILE_PHOTOS.md` | Upload, compression, storage paths, RLS, cleanup |
 
 Remaining optional work:
 

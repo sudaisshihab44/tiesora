@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { FamilyPerson, Relationship, CalculatedRelationship } from '../../types';
 import { calculateRelationship } from '../../utils/relationshipEngine';
+import { MemberAvatar } from '../common/MemberAvatar';
 import { 
   Compass, 
   ArrowRight, 
@@ -146,9 +147,7 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
             </div>
             {personA && (
               <div className="flex items-center gap-2.5 pt-1">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold flex items-center justify-center shrink-0">
-                  {personA.display_name.substring(0, 2).toUpperCase()}
-                </div>
+                <MemberAvatar person={personA} className="w-8 h-8 text-xs" />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-stone-800 truncate">{personA.display_name}</p>
                   <p className="text-[11px] text-stone-400 truncate">Generation {personA.generation_level} · {personA.branch || 'Direct'}</p>
@@ -188,9 +187,7 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
             </div>
             {personB && (
               <div className="flex items-center gap-2.5 pt-1">
-                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center shrink-0">
-                  {personB.display_name.substring(0, 2).toUpperCase()}
-                </div>
+                <MemberAvatar person={personB} className="w-8 h-8 text-xs" />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-stone-800 truncate">{personB.display_name}</p>
                   <p className="text-[11px] text-stone-400 truncate">Generation {personB.generation_level} · {personB.branch || 'Direct'}</p>
@@ -252,9 +249,7 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
                     onClick={() => onSelectPerson(ancestor)}
                     className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-emerald-200/80 rounded-lg text-xs font-semibold text-emerald-950 hover:border-emerald-700 transition-colors shadow-2xs"
                   >
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">
-                      {ancestor.display_name.substring(0, 1)}
-                    </div>
+                    <MemberAvatar person={ancestor} className="w-5 h-5 text-[9px]" />
                     {ancestor.display_name}
                     <span className="text-[10px] text-stone-400 font-normal">
                       (Gen {ancestor.generation_level})
@@ -306,15 +301,16 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                          isStart
-                            ? 'bg-emerald-800 text-white'
-                            : isEnd
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-stone-100 text-stone-700 group-hover:bg-emerald-100 group-hover:text-emerald-900'
-                        }`}>
-                          {node.display_name.substring(0, 2).toUpperCase()}
-                        </div>
+                        <MemberAvatar
+                          person={node}
+                          className={`w-9 h-9 text-xs ${
+                            isStart
+                              ? 'ring-2 ring-emerald-700'
+                              : isEnd
+                              ? 'ring-2 ring-amber-600'
+                              : ''
+                          }`}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-stone-900 truncate group-hover:text-emerald-950">
                             {node.display_name}

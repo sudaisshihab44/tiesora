@@ -1,5 +1,6 @@
 import React from 'react';
 import { FamilyImage } from '../common/FamilyImage';
+import { MemberAvatar } from '../common/MemberAvatar';
 import { calculateRelationship } from '../../utils/relationshipEngine';
 import { toRoman } from '../../utils/roman';
 import {
@@ -248,11 +249,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
               </p>
               {featuredA && featuredB && (
-                <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
+                  {featuredA && (
+                    <MemberAvatar person={featuredA} className="w-5 h-5 text-[9px]" />
+                  )}
                   <span className="font-semibold text-stone-700">
                     {featuredA.display_name}
                   </span>
                   <ArrowRight className="w-3 h-3 text-stone-300" />
+                  {featuredB && (
+                    <MemberAvatar person={featuredB} className="w-5 h-5 text-[9px]" />
+                  )}
                   <span className="font-semibold text-stone-700">
                     {featuredB.display_name}
                   </span>

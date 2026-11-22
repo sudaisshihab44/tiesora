@@ -66,7 +66,11 @@ export async function updatePersonAction(
   updates: PersonUpdates,
 ): Promise<FamilyPerson> {
   if (!supabaseMode()) {
-    return storage.updatePerson(personId, updates);
+    const { avatar_path, ...rest } = updates;
+    return storage.updatePerson(personId, {
+      ...rest,
+      avatar_path: avatar_path === null ? '' : avatar_path,
+    });
   }
   return db.updatePerson(personId, updates);
 }
@@ -290,6 +294,23 @@ export async function uploadFamilyPhotoAction(
     return fileToDataUrl(file);
   }
   return db.uploadFamilyPhoto(file, familyId);
+}
+
+export async function uploadProfilePhotoAction(
+  file: File,
+  familyId: string,
+  memberId: string,
+  onProgress?: (percent: number) => void,
+): Promise<string> {
+  if (!supabaseMode()) {
+    return fileToDataUrl(file);
+  }
+  return db.uploadProfilePhoto(file, familyId, memberId, onProgress);
+}
+
+export async function deleteFamilyPhotoAction(path: string): Promise<void> {
+  if (!supabaseMode()) return;
+  await db.deleteFamilyPhoto(path);
 }
 
 export async function getFamilyPhotoUrlAction(pathOrUrl: string): Promise<string> {
