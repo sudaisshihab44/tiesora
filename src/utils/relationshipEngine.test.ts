@@ -65,6 +65,9 @@ const SYNTH_PEOPLE: FamilyPerson[] = [
   makePerson('s_father_sister', SYNTH_FAMILY, 'Father Sister', 'female', 2),
   makePerson('s_child_a', SYNTH_FAMILY, 'Child A', 'female', 3),
   makePerson('s_child_a_spouse', SYNTH_FAMILY, 'Child A Spouse', 'male', 3),
+  makePerson('s_child_b', SYNTH_FAMILY, 'Child B', 'male', 3),
+  makePerson('s_child_b_spouse', SYNTH_FAMILY, 'Child B Spouse', 'female', 3),
+  makePerson('s_father_brother', SYNTH_FAMILY, 'Father Brother', 'male', 2),
   makePerson('s_step_grandma', SYNTH_FAMILY, 'Step Grandma', 'female', 1),
   makePerson('s_step_child', SYNTH_FAMILY, 'Step Child', 'male', 2),
   makePerson('s_half_a', SYNTH_FAMILY, 'Half A', 'male', 5),
@@ -78,6 +81,8 @@ const SYNTH_PEOPLE: FamilyPerson[] = [
   makePerson('s_gg4', SYNTH_FAMILY, 'Great-Great Great-Grandchild', 'male', 4),
   makePerson('s_gg5', SYNTH_FAMILY, 'Great-Great Great-Great-Grandchild', 'male', 5),
   makePerson('s_missing', SYNTH_FAMILY, 'Missing Parent Child', 'male', 5),
+  makePerson('s_low_a', SYNTH_FAMILY, 'Low Confidence Husband', 'male', 1),
+  makePerson('s_low_b', SYNTH_FAMILY, 'Low Confidence Wife', 'female', 4),
   makePerson('s_outsider', OTHER_FAMILY, 'Other Family Member', 'male', 1),
 ];
 
@@ -91,6 +96,11 @@ const SYNTH_RELATIONSHIPS: Relationship[] = [
   makeRelationship('sr_father_child_a', SYNTH_FAMILY, 's_father', 's_child_a'),
   makeRelationship('sr_mother_child_a', SYNTH_FAMILY, 's_mother', 's_child_a'),
   makeRelationship('sr_child_a_spouse', SYNTH_FAMILY, 's_child_a', 's_child_a_spouse', 'spouse'),
+  makeRelationship('sr_father_child_b', SYNTH_FAMILY, 's_father', 's_child_b'),
+  makeRelationship('sr_mother_child_b', SYNTH_FAMILY, 's_mother', 's_child_b'),
+  makeRelationship('sr_child_b_spouse', SYNTH_FAMILY, 's_child_b', 's_child_b_spouse', 'spouse'),
+  makeRelationship('sr_gf_brother', SYNTH_FAMILY, 's_gf', 's_father_brother'),
+  makeRelationship('sr_gm_brother', SYNTH_FAMILY, 's_gm', 's_father_brother'),
   makeRelationship('sr_mother_parent_mother', SYNTH_FAMILY, 's_mother_parent', 's_mother'),
   makeRelationship('sr_mother_parent_sister', SYNTH_FAMILY, 's_mother_parent', 's_mother_sister'),
   makeRelationship('sr_gf_step_grandma', SYNTH_FAMILY, 's_gf', 's_step_grandma', 'spouse'),
@@ -103,6 +113,7 @@ const SYNTH_RELATIONSHIPS: Relationship[] = [
   makeRelationship('sr_gg2_3', SYNTH_FAMILY, 's_gg2', 's_gg3'),
   makeRelationship('sr_gg3_4', SYNTH_FAMILY, 's_gg3', 's_gg4'),
   makeRelationship('sr_gg4_5', SYNTH_FAMILY, 's_gg4', 's_gg5'),
+  makeRelationship('sr_low_spouses', SYNTH_FAMILY, 's_low_a', 's_low_b', 'spouse'),
 ];
 
 export function runRelationshipTestSuite(): {
@@ -558,6 +569,87 @@ export function runRelationshipTestSuite(): {
         distance?.sourceToCommonAncestor === 2 &&
         distance?.targetToCommonAncestor === 0 &&
         distance?.totalSteps === 2,
+    });
+  }
+
+  // 31. A recorded spouse link spanning more than one generation is surfaced,
+  // but must not be presented as fully verified.
+  {
+    const res = calculateSynth('s_low_a', 's_low_b');
+    results.push({
+      title: 'Low-Confidence Spouse Link Test',
+      expected: 'Wife (incomplete) with warning',
+      actual: `${res.primaryLabel} (${res.connectionStatus})`,
+      passed:
+        res.primaryLabel === 'Wife' &&
+        res.connectionStatus === 'incomplete' &&
+        Boolean(res.missingRecords?.some((note) => note.includes('spans 3 generations'))),
+      notes: res.missingRecords?.join(' '),
+    });
+  }
+
+  // 32. Mother and daughter direction.
+  {
+    const daughter = calculateSynth('s_child_a', 's_mother');
+    const mother = calculateSynth('s_mother', 's_child_a');
+    results.push({
+      title: 'Mother / Daughter Direction Test',
+      expected: 'Mother / Daughter',
+      actual: `${daughter.primaryLabel} / ${mother.primaryLabel}`,
+      passed:
+        daughter.primaryLabel === 'Mother' && mother.primaryLabel === 'Daughter',
+    });
+  }
+
+  // 33. Grandmother and granddaughter direction.
+  {
+    const grandmother = calculateSynth('s_child_a', 's_gm');
+    const granddaughter = calculateSynth('s_gm', 's_child_a');
+    results.push({
+      title: 'Grandmother / Granddaughter Direction Test',
+      expected: 'Grandmother / Granddaughter',
+      actual: `${grandmother.primaryLabel} / ${granddaughter.primaryLabel}`,
+      passed:
+        grandmother.primaryLabel === 'Grandmother' &&
+        granddaughter.primaryLabel === 'Granddaughter',
+    });
+  }
+
+  // 34. Great-grandparent and great-grandchild.
+  {
+    const greatGrandson = calculateSynth('s_gg1', 's_gg4');
+    const greatGrandfather = calculateSynth('s_gg4', 's_gg1');
+    results.push({
+      title: 'Great-Grandparent / Great-Grandchild Test',
+      expected: 'Great-Grandson / Great-Grandfather',
+      actual: `${greatGrandson.primaryLabel} / ${greatGrandfather.primaryLabel}`,
+      passed:
+        greatGrandson.primaryLabel === 'Great-Grandson' &&
+        greatGrandfather.primaryLabel === 'Great-Grandfather',
+    });
+  }
+
+  // 35. Daughter-in-law.
+  {
+    const res = calculateSynth('s_father', 's_child_b_spouse');
+    results.push({
+      title: 'Daughter-in-Law Test (Father ➔ Child B Spouse)',
+      expected: 'Daughter-in-Law',
+      actual: res.primaryLabel,
+      passed: res.primaryLabel === 'Daughter-in-Law',
+      notes: res.pathDescription,
+    });
+  }
+
+  // 36. Brother-in-law through a spouse's sibling.
+  {
+    const res = calculateSynth('s_mother', 's_father_brother');
+    results.push({
+      title: 'Brother-in-Law Test (Mother ➔ Father Brother)',
+      expected: 'Brother-in-Law',
+      actual: res.primaryLabel,
+      passed: res.primaryLabel === 'Brother-in-Law',
+      notes: res.pathDescription,
     });
   }
 

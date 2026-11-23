@@ -119,8 +119,9 @@ The real 675-person family graph is smaller and uses the same path.
 
 ## Verification
 
-- Relationship engine tests: **30/30 passing**.
+- Relationship engine tests: **36/36 passing**.
 - Data mapper tests: **30/30 passing**.
+- Combined suite: **66/66 passing**.
 - Real-data scenarios verified:
   - Father/son
   - Grandfather/grandson
@@ -143,6 +144,18 @@ The real 675-person family graph is smaller and uses the same path.
   the viewport.
 - Admin and Viewer both calculate relationships; Viewer has no write controls.
 - No database migrations or data changes were required.
+
+Production verification at `https://tiesora-alpha.vercel.app`:
+
+- Default parent result: **Son / Verified Relationship**.
+- Grandfather: **Verified Relationship** with common ancestor and path.
+- First cousin: **Verified Relationship** with two-branch view.
+- Sibling-in-law: **Verified Relationship** with a complete path.
+- Abdul Latheef → Maher: **Incomplete Family Records**, no fabricated path.
+- **View on Family Tree**: focuses Generation 2 and highlights all 3 path cards.
+- Mobile 390 px: no page overflow; both searchable pickers fit.
+- Viewer: can calculate Grandfather; no User Management or Add Member controls.
+- Browser console: **0 errors**.
 
 ## Known data limitations
 
