@@ -229,17 +229,49 @@ export interface TreeCoordinateNode {
 }
 
 // Relationship Engine types
+export type RelationshipConnectionStatus =
+  | 'verified'
+  | 'incomplete'
+  | 'not_found'
+  | 'invalid';
+
+export interface RelationshipGenerationDistance {
+  /** Parent-child steps from Person A up to the common ancestor. */
+  sourceToCommonAncestor: number;
+  /** Parent-child steps from Person B up to the common ancestor. */
+  targetToCommonAncestor: number;
+  /** Difference between the two branches. Zero means the same generation. */
+  generationOffset: number;
+  /** Total parent-child steps through the common ancestor. */
+  totalSteps: number;
+}
+
+export interface RelationshipBranch {
+  /** Selected person first, common ancestor last. */
+  nodes: FamilyPerson[];
+  /** Relationship of each next node to the previous node. */
+  edgeDescriptions: string[];
+}
+
 export interface CalculatedRelationship {
   sourcePerson: FamilyPerson;
   targetPerson: FamilyPerson;
   primaryLabel: string;
   pathDescription: string;
   sharedAncestors: FamilyPerson[];
+  commonAncestor?: FamilyPerson;
   pathNodes: FamilyPerson[];
   pathEdgeDescriptions: string[];
+  sourceBranch?: RelationshipBranch;
+  targetBranch?: RelationshipBranch;
+  generationDistance?: RelationshipGenerationDistance;
   alternativeInterpretations?: string[];
+  missingRecords?: string[];
+  relationshipDetail?: string;
+  ageRelation?: 'elder' | 'younger';
+  connectionStatus: RelationshipConnectionStatus;
   confidence: 'verified' | 'inferred' | 'ambiguous';
-  relationshipCategory: 
+  relationshipCategory:
     | 'self'
     | 'parent'
     | 'child'
@@ -254,12 +286,14 @@ export interface CalculatedRelationship {
     | 'first_cousin'
     | 'first_cousin_once_removed'
     | 'second_cousin'
+    | 'cousin'
     | 'spouse'
     | 'in_law'
     | 'step'
     | 'adoptive'
     | 'distant'
-    | 'disconnected';
+    | 'disconnected'
+    | 'invalid';
 }
 
 // ─── Auth routing views ───────────────────────────────────────────────────────

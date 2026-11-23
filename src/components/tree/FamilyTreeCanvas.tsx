@@ -32,6 +32,7 @@ interface FamilyTreeCanvasProps {
   familyId: string;
   familyName: string;
   userIsAdmin?: boolean;
+  pathHighlightIds?: string[];
   onRefresh: () => void;
 }
 
@@ -46,6 +47,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   familyId,
   familyName,
   userIsAdmin = false,
+  pathHighlightIds = [],
   onRefresh,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -240,6 +242,31 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const layout = useMemo(() => {
     return computeTreeLayout(visiblePeople, relationships, collapsedIds, generationLabels);
   }, [visiblePeople, relationships, collapsedIds, generationLabels]);
+
+  const pathHighlightSet = useMemo(
+    () => new Set(pathHighlightIds),
+    [pathHighlightIds],
+  );
+
+  useEffect(() => {
+    if (pathHighlightIds.length === 0) return;
+    const pathPeople = layoutPeople.filter((person) =>
+      pathHighlightIds.includes(person.id),
+    );
+    const levels = [...new Set(
+      pathPeople.map(
+        (person) =>
+          generationLevels.get(person.id) ?? person.generation_level ?? 1,
+      ),
+    )].sort((a, b) => a - b);
+    const span = levels.length > 0 ? levels[levels.length - 1] - levels[0] : 0;
+    if (span <= 2 && levels.length > 1) {
+      setFocusedGeneration(levels[Math.floor((levels.length - 1) / 2)]);
+    } else {
+      setFocusedGeneration('all');
+    }
+    setCollapsedIds(new Set());
+  }, [pathHighlightIds, layoutPeople, generationLevels]);
 
   // Ancestor / descendant highlight sets
   const { ancestorIds, descendantIds } = useMemo(() => {
@@ -739,6 +766,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                     person={node.person}
                     isSelected={isSelected}
                     isHighlighted={isAncestor || isDescendant}
+                    isPathNode={pathHighlightSet.has(node.person.id)}
                     hasChildren={parentsWithChildren.has(node.person.id)}
                     isCollapsed={node.collapsed}
                     onSelect={handleSelectPerson}

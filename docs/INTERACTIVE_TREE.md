@@ -67,6 +67,8 @@ selecting a person still highlights their lineage as part of the tree.
   connecting lines
 - Search by name; selecting a result switches to that person's generation
 - Selected person's ancestors and descendants are highlighted
+- **View on Family Tree** from the Relationship Explorer focuses a generation
+  spanning the calculated path and marks every path node on the tree
 - Parent, spouse, adoptive, and step relationships are drawn from the database
 - Invalid/self relationships and duplicate edges are ignored
 - Generation filtering uses effective calculated levels, not hardcoded values

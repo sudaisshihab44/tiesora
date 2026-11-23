@@ -109,6 +109,7 @@ export default function App() {
 
   // Person / tree drawers
   const [selectedPerson,      setSelectedPerson]      = useState<FamilyPerson | null>(null);
+  const [treePathHighlightIds, setTreePathHighlightIds] = useState<string[]>([]);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [addRelativeState, setAddRelativeState] = useState<{
     isOpen: boolean; targetPerson?: FamilyPerson; editPerson?: FamilyPerson;
@@ -518,6 +519,7 @@ export default function App() {
 
   const handleJumpToTreeWithHighlight = (pathNodeIds: string[]) => {
     setCurrentTab('tree');
+    setTreePathHighlightIds(pathNodeIds);
     const firstNode = people.find(p => p.id === pathNodeIds[0]);
     if (firstNode) setSelectedPerson(firstNode);
   };
@@ -906,6 +908,7 @@ export default function App() {
               familyId={currentFamily.id}
               familyName={currentFamily.name}
               userIsAdmin={isAdmin}
+              pathHighlightIds={treePathHighlightIds}
               onRefresh={refreshAll}
             />
           )}
