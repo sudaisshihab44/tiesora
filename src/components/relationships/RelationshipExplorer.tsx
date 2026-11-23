@@ -65,11 +65,17 @@ const STATUS_META: Record<
 function formatGenerationDistance(result: CalculatedRelationship): string {
   const distance = result.generationDistance;
   if (!distance) {
-    return result.relationshipCategory === 'spouse' ||
+    if (result.relationshipCategory === 'parent') return '1 generation above';
+    if (result.relationshipCategory === 'child') return '1 generation below';
+    if (result.relationshipCategory === 'adoptive') return 'Adoptive relationship';
+    if (
+      result.relationshipCategory === 'spouse' ||
       result.relationshipCategory === 'in_law' ||
       result.relationshipCategory === 'step'
-      ? 'By marriage or step relationship'
-      : 'Not available from recorded data';
+    ) {
+      return 'By marriage or step relationship';
+    }
+    return 'Not available from recorded data';
   }
   if (distance.sourceToCommonAncestor === 0) {
     return `${distance.targetToCommonAncestor} generation${
@@ -347,11 +353,15 @@ export const RelationshipExplorer: React.FC<RelationshipExplorerProps> = ({
                   </button>
                 ) : (
                   <p className="text-xs text-stone-500 mt-2">
-                    {calculation.relationshipCategory === 'spouse' ||
-                    calculation.relationshipCategory === 'in_law' ||
-                    calculation.relationshipCategory === 'step'
-                      ? 'Not applicable — this is a marriage or step link.'
-                      : 'Not established from the available records.'}
+                    {calculation.relationshipCategory === 'parent' ||
+                    calculation.relationshipCategory === 'child' ||
+                    calculation.relationshipCategory === 'adoptive'
+                      ? 'Not applicable — this is a direct parent-child link.'
+                      : calculation.relationshipCategory === 'spouse' ||
+                          calculation.relationshipCategory === 'in_law' ||
+                          calculation.relationshipCategory === 'step'
+                        ? 'Not applicable — this is a marriage, step, or in-law link.'
+                        : 'Not established from the available records.'}
                   </p>
                 )}
               </div>

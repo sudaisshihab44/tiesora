@@ -1,0 +1,353 @@
+[
+  {
+    "file": "01-father.jpg",
+    "expected": "Father",
+    "actual": "Father",
+    "status": "Verified Relationship",
+    "personA": "Ayesha Bi",
+    "personB": "Mohd. Hashim",
+    "matches": true
+  },
+  {
+    "file": "02-mother.jpg",
+    "expected": "Mother",
+    "actual": "Mother",
+    "status": "Verified Relationship",
+    "personA": "Jaleel",
+    "personB": "Tahseen",
+    "matches": true
+  },
+  {
+    "file": "03-son.jpg",
+    "expected": "Son",
+    "actual": "Son",
+    "status": "Verified Relationship",
+    "personA": "Darvesh Mohammed",
+    "personB": "Abdul Latheef",
+    "matches": true
+  },
+  {
+    "file": "04-daughter.jpg",
+    "expected": "Daughter",
+    "actual": "Daughter",
+    "status": "Verified Relationship",
+    "personA": "Abdul Hameed",
+    "personB": "Qhadija Bi",
+    "matches": true
+  },
+  {
+    "file": "05-grandfather.jpg",
+    "expected": "Grandfather",
+    "actual": "Grandfather",
+    "status": "Verified Relationship",
+    "personA": "Sabiha (d/o Nawab)",
+    "personB": "Fazlulla Sharif",
+    "matches": true
+  },
+  {
+    "file": "06-grandmother.jpg",
+    "expected": "Grandmother",
+    "actual": "Grandmother",
+    "status": "Verified Relationship",
+    "personA": "Badar",
+    "personB": "Zakera Khatoon",
+    "matches": true
+  },
+  {
+    "file": "07-grandson.jpg",
+    "expected": "Grandson",
+    "actual": "Grandson",
+    "status": "Verified Relationship",
+    "personA": "Darvesh Mohammed",
+    "personB": "Lala Mian",
+    "matches": true
+  },
+  {
+    "file": "08-granddaughter.jpg",
+    "expected": "Granddaughter",
+    "actual": "Granddaughter",
+    "status": "Verified Relationship",
+    "personA": "Darvesh Mohammed",
+    "personB": "Qhadija Bi",
+    "matches": true
+  },
+  {
+    "file": "09-great-grandson.jpg",
+    "expected": "Great-Grandson",
+    "actual": "Great-Grandson",
+    "status": "Verified Relationship",
+    "personA": "Darvesh Mohammed",
+    "personB": "Abdul Qhader Shariff",
+    "matches": true
+  },
+  {
+    "file": "10-great-granddaughter.jpg",
+    "expected": "Great-Granddaughter",
+    "actual": "Great-Granddaughter",
+    "status": "Verified Relationship",
+    "personA": "Darvesh Mohammed",
+    "personB": "Qhader Bi",
+    "matches": true
+  },
+  {
+    "file": "11-brother.jpg",
+    "expected": "Brother",
+    "actual": "Brother",
+    "status": "Verified Relationship",
+    "personA": "Hajira Masroor",
+    "personB": "Sadiq Hussain",
+    "matches": true
+  },
+  {
+    "file": "12-sister.jpg",
+    "expected": "Sister",
+    "actual": "Sister",
+    "status": "Verified Relationship",
+    "personA": "Naseebunnisa",
+    "personB": "Azeeza Arif",
+    "matches": true
+  },
+  {
+    "file": "13-nephew.jpg",
+    "expected": "Nephew",
+    "actual": "Nephew",
+    "status": "Verified Relationship",
+    "personA": "Abdul Latheef",
+    "personB": "Syed Yousuf",
+    "matches": true
+  },
+  {
+    "file": "14-niece.jpg",
+    "expected": "Niece",
+    "actual": "Niece",
+    "status": "Verified Relationship",
+    "personA": "Abdul Latheef",
+    "personB": "Qhadija Bi",
+    "matches": true
+  },
+  {
+    "file": "15-first-cousin.jpg",
+    "expected": "First Cousin",
+    "actual": "First Cousin",
+    "status": "Verified Relationship",
+    "personA": "Lala Mian",
+    "personB": "Syed Yousuf",
+    "matches": true
+  },
+  {
+    "file": "16-second-cousin.jpg",
+    "expected": "Second Cousin",
+    "actual": "Second Cousin",
+    "status": "Verified Relationship",
+    "personA": "Abdul Qhader Shariff",
+    "personB": "Azmathullah Khan Miyan",
+    "matches": true
+  },
+  {
+    "file": "17-first-cousin-once-removed.jpg",
+    "expected": "First Cousin Once Removed",
+    "actual": "First Cousin Once Removed",
+    "status": "Verified Relationship",
+    "personA": "Lala Mian",
+    "personB": "Azmathullah Khan Miyan",
+    "matches": true
+  },
+  {
+    "file": "18-husband.jpg",
+    "expected": "Husband",
+    "actual": "Husband",
+    "status": "Verified Relationship",
+    "personA": "Qhader Bi",
+    "personB": "Ghulam Mohiuddin Khan",
+    "matches": true
+  },
+  {
+    "file": "19-wife.jpg",
+    "expected": "Wife",
+    "actual": "Wife",
+    "status": "Verified Relationship",
+    "personA": "Abdul Wahab Khan",
+    "personB": "Rabia Bi",
+    "matches": true
+  },
+  {
+    "file": "20-father-in-law.jpg",
+    "expected": "Father-in-Law",
+    "actual": "Father-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Qhader Bi",
+    "personB": "Ghulam Masood Khan",
+    "matches": true
+  },
+  {
+    "file": "21-mother-in-law.jpg",
+    "expected": "Mother-in-Law",
+    "actual": "Mother-in-Law",
+    "status": "Incomplete Family Records",
+    "personA": "Zamira Khanum",
+    "personB": "Tahseen",
+    "matches": true
+  },
+  {
+    "file": "22-son-in-law.jpg",
+    "expected": "Son-in-Law",
+    "actual": "Son-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Lala Mian",
+    "personB": "Ghulam Mohiuddin Khan",
+    "matches": true
+  },
+  {
+    "file": "23-daughter-in-law.jpg",
+    "expected": "Daughter-in-Law",
+    "actual": "Daughter-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Saleha Khanum",
+    "personB": "Nahida Tabassumf",
+    "matches": true
+  },
+  {
+    "file": "24-brother-in-law.jpg",
+    "expected": "Brother-in-Law",
+    "actual": "Brother-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Abdul Qhader Shariff",
+    "personB": "Ghulam Mohiuddin Khan",
+    "matches": true
+  },
+  {
+    "file": "25-sister-in-law.jpg",
+    "expected": "Sister-in-Law",
+    "actual": "Sister-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Hajira Masroor",
+    "personB": "Nahida Tabassumf",
+    "matches": true
+  },
+  {
+    "file": "26-step-mother.jpg",
+    "expected": "Step-Mother",
+    "actual": "Step-Mother",
+    "status": "Verified Relationship",
+    "personA": "Ayesha Bi",
+    "personB": "Majoo Bi Bi",
+    "matches": true
+  },
+  {
+    "file": "27-step-father.jpg",
+    "expected": "Step-Father",
+    "actual": "Step-Father",
+    "status": "Verified Relationship",
+    "personA": "Raziya",
+    "personB": "Majid Hussain",
+    "matches": true
+  },
+  {
+    "file": "28-step-son.jpg",
+    "expected": "Step-Son",
+    "actual": "Step-Son",
+    "status": "Verified Relationship",
+    "personA": "Zahara Khatoon",
+    "personB": "Saad Mohd. Shariff",
+    "matches": true
+  },
+  {
+    "file": "29-step-daughter.jpg",
+    "expected": "Step-Daughter",
+    "actual": "Step-Daughter",
+    "status": "Verified Relationship",
+    "personA": "Rabia Bi (d/o Abdul Qhader)",
+    "personB": "Amtul Aleem",
+    "matches": true
+  },
+  {
+    "file": "30-step-brother.jpg",
+    "expected": "Step-Brother",
+    "actual": "Step-Brother",
+    "status": "Verified Relationship",
+    "personA": "Sana Farheen",
+    "personB": "Saad Mohd. Shariff",
+    "matches": true
+  },
+  {
+    "file": "31-step-sister.jpg",
+    "expected": "Step-Sister",
+    "actual": "Step-Sister",
+    "status": "Verified Relationship",
+    "personA": "Sana Farheen",
+    "personB": "Sara Almas",
+    "matches": true
+  },
+  {
+    "file": "32-adoptive-father.jpg",
+    "expected": "Adoptive Father",
+    "actual": "Adoptive Father",
+    "status": "Verified Relationship",
+    "personA": "Ghulam Mohiuddin Khan",
+    "personB": "Ghulam Masood Khan",
+    "matches": true
+  },
+  {
+    "file": "33-aunt-uncle.jpg",
+    "expected": "Aunt/Uncle",
+    "actual": "Aunt/Uncle",
+    "status": "Verified Relationship",
+    "personA": "Sabiha (d/o Nawab)",
+    "personB": "Mehrun",
+    "matches": true
+  },
+  {
+    "file": "34-grandnephew.jpg",
+    "expected": "Grandnephew",
+    "actual": "Grandnephew",
+    "status": "Verified Relationship",
+    "personA": "Abdul Latheef",
+    "personB": "Azmathullah Khan Miyan",
+    "matches": true
+  },
+  {
+    "file": "35-aunt-in-law.jpg",
+    "expected": "Aunt-in-Law",
+    "actual": "Aunt-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Sana Farheen",
+    "personB": "Naheeda Khatoon",
+    "matches": true
+  },
+  {
+    "file": "36-niece-in-law.jpg",
+    "expected": "Niece-in-Law",
+    "actual": "Niece-in-Law",
+    "status": "Verified Relationship",
+    "personA": "Ghulam Mohiuddin Khan",
+    "personB": "Rabia Bi (d/o Abdul Qhader)",
+    "matches": true
+  },
+  {
+    "file": "37-extended.jpg",
+    "expected": "Extended Family Connection",
+    "actual": "Extended Family Connection",
+    "status": "Incomplete Family Records",
+    "personA": "Darvesh Mohammed",
+    "personB": "Ghulam Mohiuddin Khan",
+    "matches": true
+  },
+  {
+    "file": "38-incomplete.jpg",
+    "expected": "No Verified Relationship Found",
+    "actual": "No Verified Relationship Found",
+    "status": "Incomplete Family Records",
+    "personA": "Abdul Latheef",
+    "personB": "Maher",
+    "matches": true
+  },
+  {
+    "file": "39-ambiguous-sibling.jpg",
+    "expected": "Brother",
+    "actual": "Brother",
+    "status": "Incomplete Family Records",
+    "personA": "Abdul Latheef",
+    "personB": "Abdul Hameed",
+    "matches": true
+  }
+]
