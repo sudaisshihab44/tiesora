@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tiesora Relationship Engine — Working Examples</title>
+  <style>
+    :root { --forest:#1f5e43; --forest-dark:#143d2c; --sage:#e8f0ea; --ivory:#f8f6ef; --ink:#27241f; --muted:#6b675f; --line:#ded9cc; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--ivory); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.45; }
+    header { background:linear-gradient(135deg,var(--forest-dark),var(--forest)); color:white; padding:40px 24px 34px; }
+    .wrap { max-width:1180px; margin:0 auto; }
+    .eyebrow { font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#c8e2d2; }
+    h1 { margin:8px 0 10px; font-size:clamp(26px,4vw,42px); line-height:1.08; letter-spacing:-.03em; }
+    header p { margin:0; max-width:780px; color:#dcebe2; font-size:14px; }
+    .stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+    .stat { background:rgba(255,255,255,.11); border:1px solid rgba(255,255,255,.17); border-radius:12px; padding:10px 14px; }
+    .stat strong { display:block; font-size:20px; }
+    .stat span { display:block; color:#dcebe2; font-size:11px; }
+    main { padding:26px 20px 60px; }
+    .note { background:#fff; border:1px solid var(--line); border-left:4px solid var(--forest); border-radius:10px; padding:14px 16px; font-size:13px; color:var(--muted); margin-bottom:26px; }
+    .note strong { color:var(--ink); }
+    section { margin:34px 0 10px; }
+    h2 { font-size:18px; letter-spacing:-.01em; color:var(--forest-dark); margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 1px 2px rgba(39,36,31,.05); display:flex; flex-direction:column; }
+    .shot { display:block; background:#f0ede4; border-bottom:1px solid var(--line); }
+    .shot img { display:block; width:100%; height:220px; object-fit:cover; object-position:top center; transition:transform .2s ease; }
+    .shot:hover img { transform:scale(1.015); }
+    .card-body { padding:12px 13px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+    .badge { align-self:flex-start; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border-radius:999px; padding:4px 8px; }
+    .badge.verified { background:#e6f2ea; color:#1b5b3f; border:1px solid #b8d8c4; }
+    .badge.incomplete { background:#fbf1de; color:#8a5a12; border:1px solid #ead4a9; }
+    h3 { margin:0; font-size:18px; letter-spacing:-.02em; }
+    .pair { margin:0; color:var(--muted); font-size:12px; }
+    .pair strong { color:var(--ink); }
+    .open { margin-top:auto; padding-top:6px; color:var(--forest); font-size:11px; font-weight:700; text-decoration:none; }
+    .open:hover { text-decoration:underline; }
+    .missing { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; font-size:13px; color:var(--muted); }
+    .missing h3 { font-size:14px; margin:0 0 8px; }
+    .missing ul { margin:0; padding-left:18px; }
+    footer { border-top:1px solid var(--line); margin-top:40px; padding-top:16px; color:var(--muted); font-size:11px; }
+    code { background:#f0ede4; border-radius:4px; padding:1px 4px; font-size:11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="eyebrow">Tiesora · Relationship Intelligence Engine</div>
+      <h1>Working Relationship Examples</h1>
+      <p>Every screenshot below was captured from the live production app using the real Darvesh Mohammed Tiesora Family records. Each card shows the selected people, the calculated relationship, its status, generation distance, and the recorded connection path.</p>
+      <div class="stats">
+        <div class="stat"><strong>39</strong><span>working screenshots</span></div>
+        <div class="stat"><strong>35</strong><span>verified relationships</span></div>
+        <div class="stat"><strong>4</strong><span>incomplete-record examples</span></div>
+        <div class="stat"><strong>0</strong><span>label mismatches</span></div>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="note">
+      <strong>Production source:</strong> <code>https://tiesora-alpha.vercel.app</code> — captured from app commit <code>9b7df44</code>.
+      All 39 screenshots matched their expected relationship labels and the browser reported zero console errors.
+      Click any screenshot to open the full-size image.
+    </div>
+    
+    <section>
+      <h2>Direct family</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="01-father.jpg" target="_blank" rel="noreferrer">
+          <img src="01-father.jpg" alt="Father relationship between Ayesha Bi and Mohd. Hashim" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Father</h3>
+          <p class="pair"><strong>Ayesha Bi</strong><span aria-hidden="true"> → </span><strong>Mohd. Hashim</strong></p>
+          <a class="open" href="01-father.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="02-mother.jpg" target="_blank" rel="noreferrer">
+          <img src="02-mother.jpg" alt="Mother relationship between Jaleel and Tahseen" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Mother</h3>
+          <p class="pair"><strong>Jaleel</strong><span aria-hidden="true"> → </span><strong>Tahseen</strong></p>
+          <a class="open" href="02-mother.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="03-son.jpg" target="_blank" rel="noreferrer">
+          <img src="03-son.jpg" alt="Son relationship between Darvesh Mohammed and Abdul Latheef" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Son</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Abdul Latheef</strong></p>
+          <a class="open" href="03-son.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="04-daughter.jpg" target="_blank" rel="noreferrer">
+          <img src="04-daughter.jpg" alt="Daughter relationship between Abdul Hameed and Qhadija Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Daughter</h3>
+          <p class="pair"><strong>Abdul Hameed</strong><span aria-hidden="true"> → </span><strong>Qhadija Bi</strong></p>
+          <a class="open" href="04-daughter.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="05-grandfather.jpg" target="_blank" rel="noreferrer">
+          <img src="05-grandfather.jpg" alt="Grandfather relationship between Sabiha (d/o Nawab) and Fazlulla Sharif" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Grandfather</h3>
+          <p class="pair"><strong>Sabiha (d/o Nawab)</strong><span aria-hidden="true"> → </span><strong>Fazlulla Sharif</strong></p>
+          <a class="open" href="05-grandfather.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="06-grandmother.jpg" target="_blank" rel="noreferrer">
+          <img src="06-grandmother.jpg" alt="Grandmother relationship between Badar and Zakera Khatoon" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Grandmother</h3>
+          <p class="pair"><strong>Badar</strong><span aria-hidden="true"> → </span><strong>Zakera Khatoon</strong></p>
+          <a class="open" href="06-grandmother.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="07-grandson.jpg" target="_blank" rel="noreferrer">
+          <img src="07-grandson.jpg" alt="Grandson relationship between Darvesh Mohammed and Lala Mian" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Grandson</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Lala Mian</strong></p>
+          <a class="open" href="07-grandson.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="08-granddaughter.jpg" target="_blank" rel="noreferrer">
+          <img src="08-granddaughter.jpg" alt="Granddaughter relationship between Darvesh Mohammed and Qhadija Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Granddaughter</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Qhadija Bi</strong></p>
+          <a class="open" href="08-granddaughter.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="09-great-grandson.jpg" target="_blank" rel="noreferrer">
+          <img src="09-great-grandson.jpg" alt="Great-Grandson relationship between Darvesh Mohammed and Abdul Qhader Shariff" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Great-Grandson</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Abdul Qhader Shariff</strong></p>
+          <a class="open" href="09-great-grandson.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="10-great-granddaughter.jpg" target="_blank" rel="noreferrer">
+          <img src="10-great-granddaughter.jpg" alt="Great-Granddaughter relationship between Darvesh Mohammed and Qhader Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Great-Granddaughter</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Qhader Bi</strong></p>
+          <a class="open" href="10-great-granddaughter.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Siblings, aunts, uncles, nieces and nephews</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="11-brother.jpg" target="_blank" rel="noreferrer">
+          <img src="11-brother.jpg" alt="Brother relationship between Hajira Masroor and Sadiq Hussain" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Brother</h3>
+          <p class="pair"><strong>Hajira Masroor</strong><span aria-hidden="true"> → </span><strong>Sadiq Hussain</strong></p>
+          <a class="open" href="11-brother.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="12-sister.jpg" target="_blank" rel="noreferrer">
+          <img src="12-sister.jpg" alt="Sister relationship between Naseebunnisa and Azeeza Arif" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Sister</h3>
+          <p class="pair"><strong>Naseebunnisa</strong><span aria-hidden="true"> → </span><strong>Azeeza Arif</strong></p>
+          <a class="open" href="12-sister.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="13-nephew.jpg" target="_blank" rel="noreferrer">
+          <img src="13-nephew.jpg" alt="Nephew relationship between Abdul Latheef and Syed Yousuf" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Nephew</h3>
+          <p class="pair"><strong>Abdul Latheef</strong><span aria-hidden="true"> → </span><strong>Syed Yousuf</strong></p>
+          <a class="open" href="13-nephew.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="14-niece.jpg" target="_blank" rel="noreferrer">
+          <img src="14-niece.jpg" alt="Niece relationship between Abdul Latheef and Qhadija Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Niece</h3>
+          <p class="pair"><strong>Abdul Latheef</strong><span aria-hidden="true"> → </span><strong>Qhadija Bi</strong></p>
+          <a class="open" href="14-niece.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="33-aunt-uncle.jpg" target="_blank" rel="noreferrer">
+          <img src="33-aunt-uncle.jpg" alt="Aunt/Uncle relationship between Sabiha (d/o Nawab) and Mehrun" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Aunt/Uncle</h3>
+          <p class="pair"><strong>Sabiha (d/o Nawab)</strong><span aria-hidden="true"> → </span><strong>Mehrun</strong></p>
+          <a class="open" href="33-aunt-uncle.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="34-grandnephew.jpg" target="_blank" rel="noreferrer">
+          <img src="34-grandnephew.jpg" alt="Grandnephew relationship between Abdul Latheef and Azmathullah Khan Miyan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Grandnephew</h3>
+          <p class="pair"><strong>Abdul Latheef</strong><span aria-hidden="true"> → </span><strong>Azmathullah Khan Miyan</strong></p>
+          <a class="open" href="34-grandnephew.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="39-ambiguous-sibling.jpg" target="_blank" rel="noreferrer">
+          <img src="39-ambiguous-sibling.jpg" alt="Brother relationship between Abdul Latheef and Abdul Hameed" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge incomplete">Incomplete Family Records</span>
+          <h3>Brother</h3>
+          <p class="pair"><strong>Abdul Latheef</strong><span aria-hidden="true"> → </span><strong>Abdul Hameed</strong></p>
+          <a class="open" href="39-ambiguous-sibling.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Cousins</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="15-first-cousin.jpg" target="_blank" rel="noreferrer">
+          <img src="15-first-cousin.jpg" alt="First Cousin relationship between Lala Mian and Syed Yousuf" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>First Cousin</h3>
+          <p class="pair"><strong>Lala Mian</strong><span aria-hidden="true"> → </span><strong>Syed Yousuf</strong></p>
+          <a class="open" href="15-first-cousin.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="16-second-cousin.jpg" target="_blank" rel="noreferrer">
+          <img src="16-second-cousin.jpg" alt="Second Cousin relationship between Abdul Qhader Shariff and Azmathullah Khan Miyan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Second Cousin</h3>
+          <p class="pair"><strong>Abdul Qhader Shariff</strong><span aria-hidden="true"> → </span><strong>Azmathullah Khan Miyan</strong></p>
+          <a class="open" href="16-second-cousin.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="17-first-cousin-once-removed.jpg" target="_blank" rel="noreferrer">
+          <img src="17-first-cousin-once-removed.jpg" alt="First Cousin Once Removed relationship between Lala Mian and Azmathullah Khan Miyan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>First Cousin Once Removed</h3>
+          <p class="pair"><strong>Lala Mian</strong><span aria-hidden="true"> → </span><strong>Azmathullah Khan Miyan</strong></p>
+          <a class="open" href="17-first-cousin-once-removed.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Marriage and in-laws</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="18-husband.jpg" target="_blank" rel="noreferrer">
+          <img src="18-husband.jpg" alt="Husband relationship between Qhader Bi and Ghulam Mohiuddin Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Husband</h3>
+          <p class="pair"><strong>Qhader Bi</strong><span aria-hidden="true"> → </span><strong>Ghulam Mohiuddin Khan</strong></p>
+          <a class="open" href="18-husband.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="19-wife.jpg" target="_blank" rel="noreferrer">
+          <img src="19-wife.jpg" alt="Wife relationship between Abdul Wahab Khan and Rabia Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Wife</h3>
+          <p class="pair"><strong>Abdul Wahab Khan</strong><span aria-hidden="true"> → </span><strong>Rabia Bi</strong></p>
+          <a class="open" href="19-wife.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="20-father-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="20-father-in-law.jpg" alt="Father-in-Law relationship between Qhader Bi and Ghulam Masood Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Father-in-Law</h3>
+          <p class="pair"><strong>Qhader Bi</strong><span aria-hidden="true"> → </span><strong>Ghulam Masood Khan</strong></p>
+          <a class="open" href="20-father-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="21-mother-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="21-mother-in-law.jpg" alt="Mother-in-Law relationship between Zamira Khanum and Tahseen" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge incomplete">Incomplete Family Records</span>
+          <h3>Mother-in-Law</h3>
+          <p class="pair"><strong>Zamira Khanum</strong><span aria-hidden="true"> → </span><strong>Tahseen</strong></p>
+          <a class="open" href="21-mother-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="22-son-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="22-son-in-law.jpg" alt="Son-in-Law relationship between Lala Mian and Ghulam Mohiuddin Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Son-in-Law</h3>
+          <p class="pair"><strong>Lala Mian</strong><span aria-hidden="true"> → </span><strong>Ghulam Mohiuddin Khan</strong></p>
+          <a class="open" href="22-son-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="23-daughter-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="23-daughter-in-law.jpg" alt="Daughter-in-Law relationship between Saleha Khanum and Nahida Tabassumf" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Daughter-in-Law</h3>
+          <p class="pair"><strong>Saleha Khanum</strong><span aria-hidden="true"> → </span><strong>Nahida Tabassumf</strong></p>
+          <a class="open" href="23-daughter-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="24-brother-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="24-brother-in-law.jpg" alt="Brother-in-Law relationship between Abdul Qhader Shariff and Ghulam Mohiuddin Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Brother-in-Law</h3>
+          <p class="pair"><strong>Abdul Qhader Shariff</strong><span aria-hidden="true"> → </span><strong>Ghulam Mohiuddin Khan</strong></p>
+          <a class="open" href="24-brother-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="25-sister-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="25-sister-in-law.jpg" alt="Sister-in-Law relationship between Hajira Masroor and Nahida Tabassumf" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Sister-in-Law</h3>
+          <p class="pair"><strong>Hajira Masroor</strong><span aria-hidden="true"> → </span><strong>Nahida Tabassumf</strong></p>
+          <a class="open" href="25-sister-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="35-aunt-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="35-aunt-in-law.jpg" alt="Aunt-in-Law relationship between Sana Farheen and Naheeda Khatoon" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Aunt-in-Law</h3>
+          <p class="pair"><strong>Sana Farheen</strong><span aria-hidden="true"> → </span><strong>Naheeda Khatoon</strong></p>
+          <a class="open" href="35-aunt-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="36-niece-in-law.jpg" target="_blank" rel="noreferrer">
+          <img src="36-niece-in-law.jpg" alt="Niece-in-Law relationship between Ghulam Mohiuddin Khan and Rabia Bi (d/o Abdul Qhader)" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Niece-in-Law</h3>
+          <p class="pair"><strong>Ghulam Mohiuddin Khan</strong><span aria-hidden="true"> → </span><strong>Rabia Bi (d/o Abdul Qhader)</strong></p>
+          <a class="open" href="36-niece-in-law.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Step and adoptive relationships</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="26-step-mother.jpg" target="_blank" rel="noreferrer">
+          <img src="26-step-mother.jpg" alt="Step-Mother relationship between Ayesha Bi and Majoo Bi Bi" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Mother</h3>
+          <p class="pair"><strong>Ayesha Bi</strong><span aria-hidden="true"> → </span><strong>Majoo Bi Bi</strong></p>
+          <a class="open" href="26-step-mother.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="27-step-father.jpg" target="_blank" rel="noreferrer">
+          <img src="27-step-father.jpg" alt="Step-Father relationship between Raziya and Majid Hussain" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Father</h3>
+          <p class="pair"><strong>Raziya</strong><span aria-hidden="true"> → </span><strong>Majid Hussain</strong></p>
+          <a class="open" href="27-step-father.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="28-step-son.jpg" target="_blank" rel="noreferrer">
+          <img src="28-step-son.jpg" alt="Step-Son relationship between Zahara Khatoon and Saad Mohd. Shariff" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Son</h3>
+          <p class="pair"><strong>Zahara Khatoon</strong><span aria-hidden="true"> → </span><strong>Saad Mohd. Shariff</strong></p>
+          <a class="open" href="28-step-son.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="29-step-daughter.jpg" target="_blank" rel="noreferrer">
+          <img src="29-step-daughter.jpg" alt="Step-Daughter relationship between Rabia Bi (d/o Abdul Qhader) and Amtul Aleem" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Daughter</h3>
+          <p class="pair"><strong>Rabia Bi (d/o Abdul Qhader)</strong><span aria-hidden="true"> → </span><strong>Amtul Aleem</strong></p>
+          <a class="open" href="29-step-daughter.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="30-step-brother.jpg" target="_blank" rel="noreferrer">
+          <img src="30-step-brother.jpg" alt="Step-Brother relationship between Sana Farheen and Saad Mohd. Shariff" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Brother</h3>
+          <p class="pair"><strong>Sana Farheen</strong><span aria-hidden="true"> → </span><strong>Saad Mohd. Shariff</strong></p>
+          <a class="open" href="30-step-brother.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="31-step-sister.jpg" target="_blank" rel="noreferrer">
+          <img src="31-step-sister.jpg" alt="Step-Sister relationship between Sana Farheen and Sara Almas" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Step-Sister</h3>
+          <p class="pair"><strong>Sana Farheen</strong><span aria-hidden="true"> → </span><strong>Sara Almas</strong></p>
+          <a class="open" href="31-step-sister.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="32-adoptive-father.jpg" target="_blank" rel="noreferrer">
+          <img src="32-adoptive-father.jpg" alt="Adoptive Father relationship between Ghulam Mohiuddin Khan and Ghulam Masood Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge verified">Verified Relationship</span>
+          <h3>Adoptive Father</h3>
+          <p class="pair"><strong>Ghulam Mohiuddin Khan</strong><span aria-hidden="true"> → </span><strong>Ghulam Masood Khan</strong></p>
+          <a class="open" href="32-adoptive-father.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Status and incomplete-data cases</h2>
+      <div class="grid">
+      <article class="card">
+        <a class="shot" href="37-extended.jpg" target="_blank" rel="noreferrer">
+          <img src="37-extended.jpg" alt="Extended Family Connection relationship between Darvesh Mohammed and Ghulam Mohiuddin Khan" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge incomplete">Incomplete Family Records</span>
+          <h3>Extended Family Connection</h3>
+          <p class="pair"><strong>Darvesh Mohammed</strong><span aria-hidden="true"> → </span><strong>Ghulam Mohiuddin Khan</strong></p>
+          <a class="open" href="37-extended.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="shot" href="38-incomplete.jpg" target="_blank" rel="noreferrer">
+          <img src="38-incomplete.jpg" alt="No Verified Relationship Found relationship between Abdul Latheef and Maher" loading="lazy" />
+        </a>
+        <div class="card-body">
+          <span class="badge incomplete">Incomplete Family Records</span>
+          <h3>No Verified Relationship Found</h3>
+          <p class="pair"><strong>Abdul Latheef</strong><span aria-hidden="true"> → </span><strong>Maher</strong></p>
+          <a class="open" href="38-incomplete.jpg" target="_blank" rel="noreferrer">Open full screenshot</a>
+        </div>
+      </article>
+      </div>
+    </section>
+    <section>
+      <h2>Not available from the current recorded data</h2>
+      <div class="missing">
+        <h3>Why some variants have no production screenshot</h3>
+        <ul>
+          <li><strong>Paternal / Maternal Aunt and Uncle:</strong> the recorded aunt/uncle connectors in this family do not have a recorded gender, so the engine correctly falls back to <em>Aunt/Uncle</em>. The gender-specific labels are covered by the automated tests.</li>
+          <li><strong>Verified half-sibling:</strong> both other parents are not recorded for the available sibling pairs. The gallery shows the honest <em>Brother</em> + <em>Incomplete Family Records</em> case instead.</li>
+          <li><strong>Great-Aunt / Great-Uncle:</strong> no such pair exists in the currently connected production graph.</li>
+          <li><strong>Invalid Selection:</strong> the Relationship Explorer only loads members of the active family, so two different families cannot be selected in the UI. The engine rejects them in the automated suite.</li>
+        </ul>
+      </div>
+    </section>
+    <footer>
+      Tiesora relationship engine · screenshots captured 2026-11-23 · source data remains in Supabase and was not modified.
+    </footer>
+  </main>
+</body>
+</html>

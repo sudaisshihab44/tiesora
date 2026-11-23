@@ -117,6 +117,16 @@ Synthetic benchmark:
 
 The real 675-person family graph is smaller and uses the same path.
 
+## Visual examples
+
+A browsable gallery of **39 production screenshots** is available at
+[`docs/relationship-examples/index.html`](relationship-examples/index.html).
+
+It covers direct family, siblings, aunts/uncles, nieces/nephews, cousins,
+marriage and in-laws, step and adoptive relationships, extended connections,
+and incomplete-record cases. Every screenshot matched its expected label and
+the capture run reported zero console errors.
+
 ## Verification
 
 - Relationship engine tests: **36/36 passing**.

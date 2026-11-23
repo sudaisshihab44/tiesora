@@ -8,6 +8,7 @@ Canonical docs (start here):
 | `docs/SETUP.md` | Local environment, migrations, Edge secrets, test accounts |
 | `docs/AUTH.md` | Roles, authentication, invitations, security troubleshooting |
 | `docs/RELATIONSHIP_ENGINE.md` | Genealogy graph audit, relationship calculation, statuses and tests |
+| `docs/relationship-examples/index.html` | Visual gallery of 39 production relationship examples with screenshots |
 | `docs/PROFILE_PHOTOS.md` | Member photo upload, compression, storage and RLS |
 | `docs/GOOGLE_OAUTH.md` | Google Cloud + Supabase Google provider setup |
 | `docs/EMAIL_SMTP.md` | Email verification and password-reset delivery |
