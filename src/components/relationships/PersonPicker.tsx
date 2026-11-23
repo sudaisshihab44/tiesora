@@ -121,6 +121,7 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
           }}
           aria-haspopup="listbox"
           aria-expanded={open}
+          data-selected-person-id={selectedId || undefined}
           className={`w-full bg-stone-50 border rounded-xl px-3 py-2.5 text-left transition-all flex items-center gap-2.5 ${
             open
               ? 'border-emerald-700 bg-white shadow-xs'
@@ -229,6 +230,7 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
                     type="button"
                     role="option"
                     aria-selected={isSelected}
+                    data-person-id={person.id}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => selectPerson(person)}
                     className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${
