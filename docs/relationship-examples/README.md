@@ -7,6 +7,8 @@ errors.
 
 **Open [index.html](index.html) for the visual gallery.**
 
+**Download [Tiesora-Relationship-Examples.html](Tiesora-Relationship-Examples.html)** for a single self-contained file with all 39 screenshots embedded.
+
 ## Coverage
 
 | Result | Person A | Person B | Status | Screenshot |
