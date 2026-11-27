@@ -30,7 +30,7 @@ Implementation history:
 | `docs/PHASE_8.md` | Docs consolidation, large-tree list default, dependency audit |
 | `docs/PHASE_9.md` | Legacy localStorage decision, RLS audit, production readiness |
 | `docs/DATA_REPAIR_2026-11-13.md` | PDF layout-based generation and parent-link repair |
-| `docs/INTERACTIVE_TREE.md` | Generation selector, tree interactions, profile photos |
+| `docs/INTERACTIVE_TREE.md` | Focus view, branch expansion, generation selector, tree interactions |
 | `docs/PROFILE_PHOTOS.md` | Upload, compression, storage paths, RLS, cleanup |
 
 Remaining optional work:

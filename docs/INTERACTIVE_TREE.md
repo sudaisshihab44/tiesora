@@ -154,5 +154,15 @@ change relationships.
   390px
 - Viewer can use Focus; no Add Member or User Management controls
 - Focus tree tests: 10/10 passing
+- Production smoke test at `https://tiesora-alpha.vercel.app`:
+  - Focus opens 3 cards at 85% with the focus person selected
+  - `Show grandchildren` reaches 12 cards at 55%; Fit shows all 12 at 35%
+  - Search for Badar focuses 6 cards without opening the drawer; ancestor
+    expansion reaches 8
+  - Full tree shows 675 cards at 35% with the generation selector
+  - Relationship Explorer → View on Family Tree switches to Tree view,
+    Generation 2, with all 3 path cards highlighted
+  - Viewer can use Focus; no Admin write controls
+  - Zero console errors
 - Mobile 390px: generation bar, canvas, and bottom navigation fit without page
   overflow
