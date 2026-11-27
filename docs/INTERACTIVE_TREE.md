@@ -176,6 +176,12 @@ change relationships.
   - Set Badar as Home, focus Maher, reload → Maher remains focused
   - Click Home → Badar; reload → Badar is the default focus
   - Home and last-focus keys are isolated per user and family
+- Production verification:
+  - Badar set as Home, Maher focused, reload → Maher restored
+  - Home → Badar, reload → Badar restored with HOME badge
+  - Viewer has separate preferences and no Admin controls
+  - Mobile 390px re-centers the focused card fully inside the viewport at 65%
+  - Zero console errors
 - Production smoke test at `https://tiesora-alpha.vercel.app`:
   - Focus opens 3 cards at 85% with the focus person selected
   - `Show grandchildren` reaches 12 cards at 55%; Fit shows all 12 at 35%
