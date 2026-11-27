@@ -79,7 +79,9 @@ The Focus bar reports the recorded counts for parents, spouses, siblings and
 children. It explicitly says **No recorded ancestors/descendants** when the
 records do not exist. Expanding a branch fits the newly visible branch while
 preserving a readable minimum zoom. **Fit** is available for an explicit
-full-branch fit. **Full tree** switches to the generation-filtered Tree view.
+full-branch fit. **Full tree** switches to Tree view with **All Generations**
+selected; the Tree tab keeps the focused generation for a more manageable
+context view.
 
 ## View modes
 

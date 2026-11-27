@@ -609,6 +609,12 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     fitToScreen(true);
   };
 
+  const handleFullTree = () => {
+    setCollapsedIds(new Set());
+    setFocusedGeneration('all');
+    setViewMode('tree');
+  };
+
   return (
     <div className="relative w-full h-[calc(100vh-3.5rem)] bg-stone-50 overflow-hidden select-none flex flex-col">
       {viewMode === 'focus' && focusPerson ? (
@@ -629,7 +635,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           onExpandDescendants={handleExpandDescendants}
           onCenterFocus={handleCenterFocus}
           onFitFocus={handleFitFocus}
-          onFullTree={() => handleViewModeChange('tree')}
+          onFullTree={handleFullTree}
         />
       ) : (
         <GenerationBar
