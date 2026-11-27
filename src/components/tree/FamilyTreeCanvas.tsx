@@ -7,6 +7,11 @@ import {
   pickRootPerson,
 } from '../../utils/generations';
 import { computeFocusTree } from '../../utils/focusTree';
+import {
+  loadTreePreferences,
+  saveHomePerson,
+  saveLastFocusPerson,
+} from '../../utils/treePreferences';
 import { PersonCard } from './PersonCard';
 import { TreeControls } from './TreeControls';
 import { GenerationBar } from './GenerationBar';
@@ -34,6 +39,7 @@ interface FamilyTreeCanvasProps {
   onEditPerson?: (person: FamilyPerson) => void;
   familyId: string;
   familyName: string;
+  currentUserId?: string;
   userIsAdmin?: boolean;
   pathHighlightIds?: string[];
   onRefresh: () => void;
@@ -50,6 +56,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   onEditPerson,
   familyId,
   familyName,
+  currentUserId = 'anon',
   userIsAdmin = false,
   pathHighlightIds = [],
   onRefresh,
@@ -73,6 +80,13 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const [focusedGeneration, setFocusedGeneration] = useState<number | 'all'>('all');
   const [focusAncestorDepth, setFocusAncestorDepth] = useState(1);
   const [focusDescendantDepth, setFocusDescendantDepth] = useState(1);
+  const [homePersonId, setHomePersonId] = useState<string | null>(
+    () => loadTreePreferences(familyId, currentUserId).homePersonId,
+  );
+  const [rememberedFocusId, setRememberedFocusId] = useState<string | null>(() => {
+    const preferences = loadTreePreferences(familyId, currentUserId);
+    return preferences.lastFocusPersonId ?? preferences.homePersonId;
+  });
 
   // Large trees open on a single generation in the full tree view. The user
   // can return to the full tree from the generation selector.
@@ -110,7 +124,14 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     [layoutPeople, relationships, generationLevels, selectedLayoutPerson],
   );
 
-  const focusPerson = selectedLayoutPerson ?? rootPerson;
+  const rememberedFocusPerson = rememberedFocusId
+    ? layoutPeople.find((person) => person.id === rememberedFocusId)
+    : undefined;
+  const homePerson = homePersonId
+    ? layoutPeople.find((person) => person.id === homePersonId)
+    : undefined;
+  const focusPerson = selectedLayoutPerson ?? rememberedFocusPerson ?? rootPerson;
+  const isFocusHome = Boolean(homePerson && focusPerson?.id === homePerson.id);
 
   const focusTree = useMemo(
     () =>
@@ -134,6 +155,33 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     setFocusAncestorDepth(1);
     setFocusDescendantDepth(1);
   }, [focusPerson?.id]);
+
+  useEffect(() => {
+    const preferences = loadTreePreferences(familyId, currentUserId);
+    setHomePersonId(preferences.homePersonId);
+    setRememberedFocusId(preferences.lastFocusPersonId ?? preferences.homePersonId);
+  }, [familyId, currentUserId]);
+
+  useEffect(() => {
+    if (!selectedPerson) return;
+    if (!layoutPeople.some((person) => person.id === selectedPerson.id)) return;
+    setRememberedFocusId(selectedPerson.id);
+    saveLastFocusPerson(familyId, currentUserId, selectedPerson.id);
+  }, [selectedPerson?.id, familyId, currentUserId, layoutPeople]);
+
+  useEffect(() => {
+    if (homePersonId && !layoutPeople.some((person) => person.id === homePersonId)) {
+      setHomePersonId(null);
+      saveHomePerson(familyId, currentUserId, null);
+    }
+    if (
+      rememberedFocusId &&
+      !layoutPeople.some((person) => person.id === rememberedFocusId)
+    ) {
+      setRememberedFocusId(null);
+      saveLastFocusPerson(familyId, currentUserId, null);
+    }
+  }, [homePersonId, rememberedFocusId, familyId, currentUserId, layoutPeople]);
 
   const rootLevel = rootPerson
     ? generationLevels.get(rootPerson.id) ?? rootPerson.generation_level ?? 1
@@ -347,15 +395,16 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   }, [selectedPerson, relationships]);
 
   // Center on Person
-  const centerOnPerson = useCallback((personId: string) => {
+  const centerOnPerson = useCallback((personId: string, zoomOverride?: number) => {
     const node = layout.nodes.find(n => n.person.id === personId);
     if (!node || !containerRef.current) return;
 
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
+    const effectiveZoom = zoomOverride ?? zoom;
 
-    const targetX = containerWidth / 2 - (node.x + 120) * zoom;
-    const targetY = containerHeight / 2 - (node.y + 55) * zoom;
+    const targetX = containerWidth / 2 - (node.x + 120) * effectiveZoom;
+    const targetY = containerHeight / 2 - (node.y + 55) * effectiveZoom;
 
     setPan({ x: targetX, y: targetY });
   }, [layout.nodes, zoom]);
@@ -403,6 +452,33 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   useEffect(() => {
     fitToScreenRef.current = fitToScreen;
   }, [fitToScreen]);
+
+  // Re-fit when the viewport changes (desktop resize, tablet rotation, mobile
+  // browser chrome). Without this, a canvas fitted for desktop can end up
+  // entirely off-screen after resizing.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (viewMode === 'focus' && focusPerson) {
+          const narrow = container.clientWidth < 640;
+          const targetZoom = narrow ? 0.65 : 0.85;
+          setZoom(targetZoom);
+          centerOnPersonRef.current(focusPerson.id, targetZoom);
+        } else {
+          fitToScreenRef.current();
+        }
+      });
+    });
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [viewMode, focusPerson?.id]);
 
   // The full tree re-fits when its generation scope changes. Focus view has
   // its own centering effect so expanding a branch does not cause a sudden
@@ -609,6 +685,25 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     fitToScreen(true);
   };
 
+  const handleSetHomePerson = () => {
+    if (!focusPerson) return;
+    setHomePersonId(focusPerson.id);
+    saveHomePerson(familyId, currentUserId, focusPerson.id);
+    setRememberedFocusId(focusPerson.id);
+    saveLastFocusPerson(familyId, currentUserId, focusPerson.id);
+  };
+
+  const handleGoHomePerson = () => {
+    if (!homePerson) return;
+    setRememberedFocusId(homePerson.id);
+    saveLastFocusPerson(familyId, currentUserId, homePerson.id);
+    if (onFocusPerson) {
+      onFocusPerson(homePerson);
+    } else {
+      onSelectPerson(homePerson);
+    }
+  };
+
   const handleFullTree = () => {
     setCollapsedIds(new Set());
     setFocusedGeneration('all');
@@ -635,6 +730,10 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
           onExpandDescendants={handleExpandDescendants}
           onCenterFocus={handleCenterFocus}
           onFitFocus={handleFitFocus}
+          isHomePerson={isFocusHome}
+          hasHomePerson={Boolean(homePerson)}
+          onSetHomePerson={handleSetHomePerson}
+          onGoHome={handleGoHomePerson}
           onFullTree={handleFullTree}
         />
       ) : (

@@ -83,6 +83,23 @@ full-branch fit. **Full tree** switches to Tree view with **All Generations**
 selected; the Tree tab keeps the focused generation for a more manageable
 context view.
 
+### Home Person and remembered focus
+
+- **Set home** stores the current focus person as the user's Home Person for
+  that family.
+- **Home** returns directly to that person from anywhere in Focus view.
+- The current Home Person shows a **HOME** badge in the Focus bar.
+- The last focused person is remembered across reloads.
+- Resolution order on reopening: selected person → remembered last focus →
+  Home Person → founder/root.
+- Preferences are per **user + family** and stored only in browser
+  `localStorage`. They are UI preferences, not Supabase records.
+- Viewer-role users can set a Home Person locally; this does not modify family
+  data or bypass RLS.
+- Invalid or deleted stored person IDs are cleared automatically.
+- On desktop/mobile viewport resize, Focus re-centers the focus person at a
+  responsive readable zoom instead of leaving the canvas off-screen.
+
 ## View modes
 
 The tree exposes three views:
@@ -154,6 +171,11 @@ change relationships.
   390px
 - Viewer can use Focus; no Add Member or User Management controls
 - Focus tree tests: 10/10 passing
+- Tree preference tests: 5/5 passing
+- Home/last-focus persistence verified across full page reloads:
+  - Set Badar as Home, focus Maher, reload → Maher remains focused
+  - Click Home → Badar; reload → Badar is the default focus
+  - Home and last-focus keys are isolated per user and family
 - Production smoke test at `https://tiesora-alpha.vercel.app`:
   - Focus opens 3 cards at 85% with the focus person selected
   - `Show grandchildren` reaches 12 cards at 55%; Fit shows all 12 at 35%

@@ -908,6 +908,7 @@ export default function App() {
               onEditPerson={isAdmin ? (p) => setAddRelativeState({ isOpen: true, editPerson: p }) : undefined}
               familyId={currentFamily.id}
               familyName={currentFamily.name}
+              currentUserId={currentUser?.id}
               userIsAdmin={isAdmin}
               pathHighlightIds={treePathHighlightIds}
               onRefresh={refreshAll}

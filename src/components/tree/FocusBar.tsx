@@ -5,7 +5,9 @@ import {
   Check,
   Crosshair,
   GitFork,
+  Home,
   Maximize2,
+  Pin,
   Users,
 } from 'lucide-react';
 import type { FamilyPerson } from '../../types';
@@ -28,6 +30,10 @@ interface FocusBarProps {
   onExpandDescendants: () => void;
   onCenterFocus: () => void;
   onFitFocus: () => void;
+  isHomePerson: boolean;
+  hasHomePerson: boolean;
+  onSetHomePerson: () => void;
+  onGoHome: () => void;
   onFullTree: () => void;
 }
 
@@ -60,6 +66,10 @@ export const FocusBar: React.FC<FocusBarProps> = ({
   onExpandDescendants,
   onCenterFocus,
   onFitFocus,
+  isHomePerson,
+  hasHomePerson,
+  onSetHomePerson,
+  onGoHome,
   onFullTree,
 }) => {
   const canExpandAncestors = maxAncestorDepth > ancestorDepth;
@@ -83,6 +93,12 @@ export const FocusBar: React.FC<FocusBarProps> = ({
                 <Users className="w-3 h-3" />
                 {visibleCount} shown
               </span>
+              {isHomePerson && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[9px] font-bold uppercase tracking-wider text-amber-800">
+                  <Home className="w-2.5 h-2.5" />
+                  Home
+                </span>
+              )}
             </div>
             <p className="text-xs font-bold text-stone-900 truncate">
               {focusPerson.display_name}
@@ -103,6 +119,30 @@ export const FocusBar: React.FC<FocusBarProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          {hasHomePerson && !isHomePerson && (
+            <button
+              type="button"
+              onClick={onGoHome}
+              title="Return to the home person"
+              className="px-2.5 py-1.5 bg-white border border-amber-600/30 text-amber-900 rounded-lg text-[11px] font-semibold hover:bg-amber-50 transition-colors flex items-center gap-1"
+            >
+              <Home className="w-3.5 h-3.5" />
+              Home
+            </button>
+          )}
+
+          {!isHomePerson && (
+            <button
+              type="button"
+              onClick={onSetHomePerson}
+              title={`Set ${focusPerson.display_name} as the home person`}
+              className="px-2 py-1.5 bg-white border border-stone-300 text-stone-600 rounded-lg text-[11px] font-semibold hover:bg-stone-50 hover:text-emerald-800 transition-colors flex items-center gap-1"
+            >
+              <Pin className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Set home</span>
+            </button>
+          )}
+
           {canExpandAncestors ? (
             <button
               type="button"

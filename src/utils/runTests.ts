@@ -1,5 +1,6 @@
 import { runRelationshipTestSuite } from './relationshipEngine.test';
 import { runFocusTreeTestSuite } from './focusTree.test';
+import { runTreePreferencesTestSuite } from './treePreferences.test';
 import { runDbMapperTestSuite } from '../services/db/mappers.test';
 
 interface SuiteResult {
@@ -36,12 +37,17 @@ printSuite('Relationship Engine', relationship);
 const focus = runFocusTreeTestSuite();
 printSuite('Focus Tree', focus);
 
+const preferences = runTreePreferencesTestSuite();
+printSuite('Tree Preferences', preferences);
+
 const mappers = runDbMapperTestSuite();
 printSuite('Supabase Data Mappers', mappers);
 
-const total = relationship.total + focus.total + mappers.total;
-const passed = relationship.passed + focus.passed + mappers.passed;
-const failed = relationship.failed + focus.failed + mappers.failed;
+const total = relationship.total + focus.total + preferences.total + mappers.total;
+const passed =
+  relationship.passed + focus.passed + preferences.passed + mappers.passed;
+const failed =
+  relationship.failed + focus.failed + preferences.failed + mappers.failed;
 
 console.log('\n=========================================');
 console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);
