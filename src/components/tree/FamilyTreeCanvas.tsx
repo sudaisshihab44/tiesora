@@ -6,9 +6,11 @@ import {
   computeEffectiveGenerations,
   pickRootPerson,
 } from '../../utils/generations';
+import { computeFocusTree } from '../../utils/focusTree';
 import { PersonCard } from './PersonCard';
 import { TreeControls } from './TreeControls';
 import { GenerationBar } from './GenerationBar';
+import { FocusBar } from './FocusBar';
 import { MemberAvatar } from '../common/MemberAvatar';
 import { ImportFamilyTreeModal } from './ImportFamilyTreeModal';
 import { Users, Calendar, MapPin, Heart, Plus, Edit } from 'lucide-react';
@@ -26,6 +28,7 @@ interface FamilyTreeCanvasProps {
   relationships: Relationship[];
   selectedPerson?: FamilyPerson;
   onSelectPerson: (person: FamilyPerson) => void;
+  onFocusPerson?: (person: FamilyPerson) => void;
   onAddRelative?: (targetPerson?: FamilyPerson) => void;
   onExploreRelationship: (person: FamilyPerson) => void;
   onEditPerson?: (person: FamilyPerson) => void;
@@ -41,6 +44,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   relationships,
   selectedPerson,
   onSelectPerson,
+  onFocusPerson,
   onAddRelative,
   onExploreRelationship,
   onEditPerson,
@@ -58,14 +62,20 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // View mode & search
-  const [viewMode, setViewMode] = useState<TreeViewMode>('tree');
+  // View mode & search. Focus is the default for real-sized families; small
+  // families keep the broader tree view.
+  const FOCUS_FIRST_THRESHOLD = 50;
+  const [viewMode, setViewMode] = useState<TreeViewMode>(
+    people.length > FOCUS_FIRST_THRESHOLD ? 'focus' : 'tree',
+  );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [focusedGeneration, setFocusedGeneration] = useState<number | 'all'>('all');
+  const [focusAncestorDepth, setFocusAncestorDepth] = useState(1);
+  const [focusDescendantDepth, setFocusDescendantDepth] = useState(1);
 
-  // Large trees open on a single generation so the canvas stays legible. The
-  // user can return to the full tree from the generation selector.
+  // Large trees open on a single generation in the full tree view. The user
+  // can return to the full tree from the generation selector.
   const LARGE_FAMILY_THRESHOLD = 250;
   const isLargeFamily = people.length > LARGE_FAMILY_THRESHOLD;
   const autoFocusedGeneration = useRef(false);
@@ -99,6 +109,31 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
       ),
     [layoutPeople, relationships, generationLevels, selectedLayoutPerson],
   );
+
+  const focusPerson = selectedLayoutPerson ?? rootPerson;
+
+  const focusTree = useMemo(
+    () =>
+      computeFocusTree(
+        layoutPeople,
+        relationships,
+        focusPerson?.id ?? '',
+        focusAncestorDepth,
+        focusDescendantDepth,
+      ),
+    [
+      layoutPeople,
+      relationships,
+      focusPerson?.id,
+      focusAncestorDepth,
+      focusDescendantDepth,
+    ],
+  );
+
+  useEffect(() => {
+    setFocusAncestorDepth(1);
+    setFocusDescendantDepth(1);
+  }, [focusPerson?.id]);
 
   const rootLevel = rootPerson
     ? generationLevels.get(rootPerson.id) ?? rootPerson.generation_level ?? 1
@@ -203,10 +238,12 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     return layoutPeople.filter((person) => includedIds.has(person.id));
   }, [layoutPeople, generationLevels, focusedGeneration, relationships]);
 
-  const visiblePeople = useMemo(
+  const treeVisiblePeople = useMemo(
     () => generationFilteredPeople.filter((person) => !hiddenByCollapse.has(person.id)),
     [generationFilteredPeople, hiddenByCollapse],
   );
+
+  const visiblePeople = viewMode === 'focus' ? focusTree.people : treeVisiblePeople;
 
   const generationLabels = useMemo(
     () =>
@@ -238,10 +275,15 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
 
+  const activeCollapsedIds = useMemo(
+    () => (viewMode === 'focus' ? new Set<string>() : collapsedIds),
+    [viewMode, collapsedIds],
+  );
+
   // Compute Layout
   const layout = useMemo(() => {
-    return computeTreeLayout(visiblePeople, relationships, collapsedIds, generationLabels);
-  }, [visiblePeople, relationships, collapsedIds, generationLabels]);
+    return computeTreeLayout(visiblePeople, relationships, activeCollapsedIds, generationLabels);
+  }, [visiblePeople, relationships, activeCollapsedIds, generationLabels]);
 
   const pathHighlightSet = useMemo(
     () => new Set(pathHighlightIds),
@@ -250,6 +292,7 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
 
   useEffect(() => {
     if (pathHighlightIds.length === 0) return;
+    setViewMode('tree');
     const pathPeople = layoutPeople.filter((person) =>
       pathHighlightIds.includes(person.id),
     );
@@ -317,15 +360,20 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     setPan({ x: targetX, y: targetY });
   }, [layout.nodes, zoom]);
 
-  // Center on select if person changes externally
+  const centerOnPersonRef = useRef(centerOnPerson);
   useEffect(() => {
-    if (selectedPerson) {
+    centerOnPersonRef.current = centerOnPerson;
+  }, [centerOnPerson]);
+
+  // Center on select if person changes externally while in the full tree.
+  useEffect(() => {
+    if (viewMode === 'tree' && selectedPerson) {
       centerOnPerson(selectedPerson.id);
     }
-  }, [selectedPerson?.id]);
+  }, [selectedPerson?.id, viewMode, centerOnPerson]);
 
   // Fit to screen
-  const fitToScreen = useCallback(() => {
+  const fitToScreen = useCallback((allowSmall = false) => {
     if (!containerRef.current || layout.nodes.length === 0) return;
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
@@ -334,7 +382,14 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
     const padding = 80;
     const scaleX = (width - padding * 2) / (b.width || 800);
     const scaleY = (height - padding * 2) / (b.height || 600);
-    const minZoom = focusedGeneration === 'all' ? 0.35 : 0.6;
+    const minZoom =
+      viewMode === 'focus'
+        ? allowSmall
+          ? 0.35
+          : 0.55
+        : focusedGeneration === 'all'
+          ? 0.35
+          : 0.6;
     const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), minZoom), 1.1);
 
     const centerX = width / 2 - ((b.minX + b.maxX) / 2) * newZoom;
@@ -342,14 +397,63 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
 
     setZoom(newZoom);
     setPan({ x: centerX, y: centerY });
-  }, [layout.bounds, layout.nodes.length, focusedGeneration]);
+  }, [layout.bounds, layout.nodes.length, focusedGeneration, viewMode]);
 
-  // Re-fit when the generation filter or view mode changes.
+  const fitToScreenRef = useRef(fitToScreen);
   useEffect(() => {
-    if (viewMode === 'list') return;
+    fitToScreenRef.current = fitToScreen;
+  }, [fitToScreen]);
+
+  // The full tree re-fits when its generation scope changes. Focus view has
+  // its own centering effect so expanding a branch does not cause a sudden
+  // zoom-out of the whole canvas.
+  useEffect(() => {
+    if (viewMode !== 'tree') return;
     const frame = requestAnimationFrame(() => fitToScreen());
     return () => cancelAnimationFrame(frame);
-  }, [focusedGeneration, viewMode, visiblePeople.length, layout.nodes.length, fitToScreen]);
+  }, [focusedGeneration, viewMode, treeVisiblePeople.length, layout.nodes.length, fitToScreen]);
+
+  // Focus mode uses two different viewport behaviors:
+  // - changing the focused person centers that person;
+  // - expanding a generation fits the newly visible branch so cards do not
+  //   disappear off-screen.
+  const previousFocusViewRef = useRef<{
+    viewMode: TreeViewMode;
+    id?: string;
+    ancestors: number;
+    descendants: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const previous = previousFocusViewRef.current;
+    const current = {
+      viewMode,
+      id: focusPerson?.id,
+      ancestors: focusAncestorDepth,
+      descendants: focusDescendantDepth,
+    };
+    previousFocusViewRef.current = current;
+    if (viewMode !== 'focus' || !focusPerson) return;
+
+    const focusChanged =
+      !previous ||
+      previous.viewMode !== 'focus' ||
+      previous.id !== focusPerson.id;
+    const depthChanged =
+      Boolean(previous) &&
+      previous?.viewMode === 'focus' &&
+      (previous.ancestors !== focusAncestorDepth ||
+        previous.descendants !== focusDescendantDepth);
+
+    const frame = requestAnimationFrame(() => {
+      if (focusChanged) {
+        centerOnPersonRef.current(focusPerson.id);
+      } else if (depthChanged) {
+        fitToScreenRef.current();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [viewMode, focusPerson?.id, focusAncestorDepth, focusDescendantDepth]);
 
   // Zoom handlers
   const handleZoomIn = () => setZoom(z => Math.min(z + 0.15, 2.0));
@@ -446,22 +550,97 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
   const handleSelectPerson = (person: FamilyPerson) => {
     const level =
       generationLevels.get(person.id) ?? person.generation_level ?? 1;
-    if (focusedGeneration !== 'all' && level !== focusedGeneration) {
+    if (viewMode === 'tree' && focusedGeneration !== 'all' && level !== focusedGeneration) {
       setFocusedGeneration(level);
     }
     onSelectPerson(person);
   };
 
+  const handleFocusPerson = (person: FamilyPerson) => {
+    const level =
+      generationLevels.get(person.id) ?? person.generation_level ?? 1;
+    if (onFocusPerson) {
+      onFocusPerson(person);
+    } else {
+      onSelectPerson(person);
+    }
+    if (viewMode === 'tree' && focusedGeneration !== 'all' && level !== focusedGeneration) {
+      setFocusedGeneration(level);
+    }
+  };
+
+  const handleViewModeChange = (mode: TreeViewMode) => {
+    if (mode === 'focus' && viewMode !== 'focus') {
+      setFocusAncestorDepth(1);
+      setFocusDescendantDepth(1);
+      setZoom(0.9);
+      if (focusPerson) {
+        setFocusedGeneration(
+          generationLevels.get(focusPerson.id) ?? focusPerson.generation_level ?? 1,
+        );
+      }
+    }
+    if (mode === 'tree' && viewMode === 'focus' && focusPerson) {
+      setFocusedGeneration(
+        generationLevels.get(focusPerson.id) ?? focusPerson.generation_level ?? 1,
+      );
+      setCollapsedIds(new Set());
+    }
+    setViewMode(mode);
+  };
+
+  const handleExpandAncestors = () => {
+    setFocusAncestorDepth((depth) =>
+      Math.min(depth + 1, Math.max(1, focusTree.maxAncestorDepth)),
+    );
+  };
+
+  const handleExpandDescendants = () => {
+    setFocusDescendantDepth((depth) =>
+      Math.min(depth + 1, Math.max(1, focusTree.maxDescendantDepth)),
+    );
+  };
+
+  const handleCenterFocus = () => {
+    if (focusPerson) centerOnPerson(focusPerson.id);
+  };
+
+  const handleFitFocus = () => {
+    fitToScreen(true);
+  };
+
   return (
     <div className="relative w-full h-[calc(100vh-3.5rem)] bg-stone-50 overflow-hidden select-none flex flex-col">
-      <GenerationBar
-        options={generationOptions}
-        focusedGeneration={focusedGeneration}
-        onChange={setFocusedGeneration}
-        rootPerson={rootPerson}
-        visibleCount={visiblePeople.length}
-        totalCount={people.length}
-      />
+      {viewMode === 'focus' && focusPerson ? (
+        <FocusBar
+          focusPerson={focusPerson}
+          ancestorDepth={focusAncestorDepth}
+          descendantDepth={focusDescendantDepth}
+          maxAncestorDepth={focusTree.maxAncestorDepth}
+          maxDescendantDepth={focusTree.maxDescendantDepth}
+          nextAncestorCount={focusTree.nextAncestorCount}
+          nextDescendantCount={focusTree.nextDescendantCount}
+          parentCount={focusTree.parentCount}
+          childCount={focusTree.childCount}
+          spouseCount={focusTree.spouseCount}
+          siblingCount={focusTree.siblingCount}
+          visibleCount={focusTree.people.length}
+          onExpandAncestors={handleExpandAncestors}
+          onExpandDescendants={handleExpandDescendants}
+          onCenterFocus={handleCenterFocus}
+          onFitFocus={handleFitFocus}
+          onFullTree={() => handleViewModeChange('tree')}
+        />
+      ) : (
+        <GenerationBar
+          options={generationOptions}
+          focusedGeneration={focusedGeneration}
+          onChange={setFocusedGeneration}
+          rootPerson={rootPerson}
+          visibleCount={visiblePeople.length}
+          totalCount={people.length}
+        />
+      )}
 
       <div className="relative flex-1 min-h-0 overflow-hidden">
       {/* Top Floating Controls */}
@@ -470,13 +649,13 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
-        onFitToScreen={fitToScreen}
+        onFitToScreen={() => fitToScreen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         people={layoutPeople}
-        onSelectPerson={handleSelectPerson}
+        onSelectPerson={handleFocusPerson}
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={handleViewModeChange}
         onAddNewMember={onAddRelative ? () => onAddRelative() : undefined}
         onImportFamilyTree={userIsAdmin ? () => setShowImportModal(true) : undefined}
       />
@@ -749,7 +928,10 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
 
             {/* Person Cards Layer */}
             {layout.nodes.map(node => {
-              const isSelected = selectedPerson?.id === node.person.id;
+              const isSelected =
+                viewMode === 'focus'
+                  ? focusPerson?.id === node.person.id
+                  : selectedPerson?.id === node.person.id;
               const isAncestor = ancestorIds.has(node.person.id);
               const isDescendant = descendantIds.has(node.person.id);
 
@@ -768,11 +950,11 @@ export const FamilyTreeCanvas: React.FC<FamilyTreeCanvasProps> = ({
                     isHighlighted={isAncestor || isDescendant}
                     isPathNode={pathHighlightSet.has(node.person.id)}
                     hasChildren={parentsWithChildren.has(node.person.id)}
-                    isCollapsed={node.collapsed}
+                    isCollapsed={viewMode === 'focus' ? false : node.collapsed}
                     onSelect={handleSelectPerson}
                     onAddRelative={onAddRelative}
                     onExploreRelationship={onExploreRelationship}
-                    onToggleCollapse={handleToggleCollapse}
+                    onToggleCollapse={viewMode === 'focus' ? undefined : handleToggleCollapse}
                     onEdit={onEditPerson}
                   />
                 </div>

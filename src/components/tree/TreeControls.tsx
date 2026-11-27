@@ -7,6 +7,7 @@ import {
   Search,
   Plus,
   GitFork,
+  Crosshair,
   List,
   X,
   FileUp,
@@ -61,6 +62,18 @@ export const TreeControls: React.FC<TreeControlsProps> = ({
       <div className="flex flex-wrap items-center gap-1.5 pointer-events-auto bg-white/95 backdrop-blur-md px-2 py-1.5 rounded-xl border border-stone-200/80 shadow-sm flex-1 min-w-0">
         {/* View mode buttons — scrollable on very small screens */}
         <div className="flex items-center gap-0.5 bg-stone-100/80 p-0.5 rounded-lg text-xs font-medium overflow-x-auto shrink-0">
+          <button
+            onClick={() => onViewModeChange('focus')}
+            className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap ${
+              viewMode === 'focus'
+                ? 'bg-white text-emerald-900 shadow-xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+            title="Focused family view"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Focus</span>
+          </button>
           <button
             onClick={() => onViewModeChange('tree')}
             className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap ${

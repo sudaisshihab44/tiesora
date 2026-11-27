@@ -130,8 +130,9 @@ the capture run reported zero console errors.
 ## Verification
 
 - Relationship engine tests: **36/36 passing**.
+- Focus tree tests: **10/10 passing**.
 - Data mapper tests: **30/30 passing**.
-- Combined suite: **66/66 passing**.
+- Combined suite: **76/76 passing**.
 - Real-data scenarios verified:
   - Father/son
   - Grandfather/grandson

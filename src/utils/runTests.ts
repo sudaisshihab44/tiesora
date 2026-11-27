@@ -1,4 +1,5 @@
 import { runRelationshipTestSuite } from './relationshipEngine.test';
+import { runFocusTreeTestSuite } from './focusTree.test';
 import { runDbMapperTestSuite } from '../services/db/mappers.test';
 
 interface SuiteResult {
@@ -32,12 +33,15 @@ console.log('--- Tiesora Automated Test Suite ---');
 const relationship = runRelationshipTestSuite();
 printSuite('Relationship Engine', relationship);
 
+const focus = runFocusTreeTestSuite();
+printSuite('Focus Tree', focus);
+
 const mappers = runDbMapperTestSuite();
 printSuite('Supabase Data Mappers', mappers);
 
-const total = relationship.total + mappers.total;
-const passed = relationship.passed + mappers.passed;
-const failed = relationship.failed + mappers.failed;
+const total = relationship.total + focus.total + mappers.total;
+const passed = relationship.passed + focus.passed + mappers.passed;
+const failed = relationship.failed + focus.failed + mappers.failed;
 
 console.log('\n=========================================');
 console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);

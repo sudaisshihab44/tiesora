@@ -902,6 +902,7 @@ export default function App() {
               relationships={relationships}
               selectedPerson={selectedPerson || undefined}
               onSelectPerson={handleSelectPerson}
+              onFocusPerson={(person) => setSelectedPerson(person)}
               onAddRelative={isAdmin ? (p) => setAddRelativeState({ isOpen: true, targetPerson: p }) : undefined}
               onExploreRelationship={handleExploreRelationship}
               onEditPerson={isAdmin ? (p) => setAddRelativeState({ isOpen: true, editPerson: p }) : undefined}

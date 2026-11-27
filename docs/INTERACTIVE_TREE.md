@@ -1,6 +1,6 @@
 # Interactive Family Tree & Generations
 
-Status: implemented 2026-11-18.
+Status: updated 2026-11-27 with the Focus-first view.
 
 ## Hierarchical layout
 
@@ -49,14 +49,48 @@ complete tree.
 - An **All** reset when a generation is focused
 - Current root person and visible/total counts
 
-For families over 250 people, the tree opens focused on the root generation so
-cards stay readable. The full tree remains one click away.
+For families over 50 people, the tree opens in Focus view. The full Tree view
+remains one click away and uses the generation selector; families over 250
+people still open the Tree view focused on the root generation.
+
+## Focus view
+
+Families with more than 50 people open in **Focus** view by default.
+
+Focus shows the focused person with:
+
+- recorded parents above,
+- recorded spouse(s) beside them,
+- siblings in the same generation,
+- recorded children below.
+
+The focus person is centered and selected. Search changes the focused person
+without opening the profile drawer; clicking a card still opens the profile.
+**Center** returns the focused person to the middle of the viewport.
+
+Ancestors and descendants expand **one generation per click**:
+
+- `Show grandparents`
+- `Show great-grandparents`, and deeper
+- `Show grandchildren`
+- `Show great-grandchildren`, and deeper
+
+The Focus bar reports the recorded counts for parents, spouses, siblings and
+children. It explicitly says **No recorded ancestors/descendants** when the
+records do not exist. Expanding a branch fits the newly visible branch while
+preserving a readable minimum zoom. **Fit** is available for an explicit
+full-branch fit. **Full tree** switches to the generation-filtered Tree view.
 
 ## View modes
 
-The tree exposes two views: the hierarchical **Tree** canvas and the searchable
-**List** directory. The former Ancestors and Descendants view tabs were removed;
-selecting a person still highlights their lineage as part of the tree.
+The tree exposes three views:
+
+- **Focus** — immediate family plus one-generation branch expansion.
+- **Tree** — hierarchical family-unit canvas with the generation selector.
+- **List** — searchable directory of the selected generation or all people.
+
+The former Ancestors and Descendants view tabs remain removed; selecting a
+person still highlights their lineage as part of the tree.
 
 ## Tree interactions
 
@@ -65,7 +99,10 @@ selecting a person still highlights their lineage as part of the tree.
 - Click a card to open the profile drawer
 - Expand/collapse a branch; collapsing hides all descendant cards and their
   connecting lines
-- Search by name; selecting a result switches to that person's generation
+- Search by name; selecting a result focuses/centers that person. In Tree view
+  it switches to the person's generation.
+- In Focus view, search changes the focus person without opening the profile
+  drawer; clicking a person card still opens the drawer.
 - Selected person's ancestors and descendants are highlighted
 - **View on Family Tree** from the Relationship Explorer focuses a generation
   spanning the calculated path and marks every path node on the tree
@@ -87,6 +124,10 @@ change relationships.
 
 - The full 675-member tree renders without overlap and without horizontal page
   overflow.
+- Focus view defaults to a small immediate-family subgraph; the full graph is
+  only rendered when the user chooses Tree view.
+- Automatic focus expansion keeps a readable minimum zoom (0.55); explicit Fit
+  can go to 0.35 to show the complete expanded branch.
 - Selected generations are vertically and horizontally pannable at a readable
   minimum zoom (0.6); All Generations fits the whole canvas (minimum 0.35).
 - Cards are laid out by relationship generation, never alphabetical or age
@@ -101,5 +142,15 @@ change relationships.
 - Search for a Generation 7 member switches the selector to Generation 7
 - All Generations shows 675 cards with **zero overlaps** and no console errors
 - Profile photo upload, signed-URL display, and deletion cleanup verified
+- Focus view opens the 675-person family on 3 immediate-family cards, no
+  horizontal page overflow, at 85% zoom
+- `Show grandchildren` reveals 12 cards and auto-fits to 55%; explicit **Fit**
+  shows all 12 inside the viewport at 35%
+- Search for Badar focuses 6 cards without opening the profile drawer; ancestor
+  expansion adds 2 grandparents for 8 cards
+- Mobile 390px: Focus bar wraps, canvas is pannable, and page width remains
+  390px
+- Viewer can use Focus; no Add Member or User Management controls
+- Focus tree tests: 10/10 passing
 - Mobile 390px: generation bar, canvas, and bottom navigation fit without page
   overflow
